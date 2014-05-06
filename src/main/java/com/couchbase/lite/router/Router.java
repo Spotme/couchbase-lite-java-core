@@ -43,6 +43,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumSet;
@@ -427,32 +428,49 @@ public class Router implements Database.ChangeListener {
             }
         }
 
-        String attachmentName = null;
-        if(docID != null && pathLen > 2) {
-        	message = message.replaceFirst("_Document", "_Attachment");
-        	// Interpret attachment name:
-        	attachmentName = path.get(2);
-        	if(attachmentName.startsWith("_") && docID.startsWith("_design")) {
-        		// Design-doc attribute like _info or _view
-        		message = message.replaceFirst("_Attachment", "_DesignDocument");
-        		docID = docID.substring(8); // strip the "_design/" prefix
-        		attachmentName = pathLen > 3 ? path.get(3) : null;
-        	} else {
-        		if (pathLen > 3) {
-        			List<String> subList = path.subList(2, pathLen);
-        			StringBuilder sb = new StringBuilder();
-        			Iterator<String> iter = subList.iterator();
-        			while(iter.hasNext()) {
-        				sb.append(iter.next());
-        				if(iter.hasNext()) {
-        					//sb.append("%2F");
-        					sb.append("/");
-        				}
-        			}
-        			attachmentName = sb.toString();
-        		}
-        	}
-        }
+	    String attachmentName = null;
+	    if(docID != null && pathLen > 2) {
+		    message = message.replaceFirst("_Document", "_Attachment");
+		    // Interpret attachment name:
+		    attachmentName = path.get(2);
+		    if(attachmentName.startsWith("_") && docID.startsWith("_design")) {
+			    // Design-doc attribute like _info or _view
+			    message = message.replaceFirst("_Attachment", "_DesignDocument");
+			    docID = docID.substring(8); // strip the "_design/" prefix
+			    attachmentName = pathLen > 3 ? path.get(3) : null;
+
+			    if (pathLen > 4) { // _list or _show functions
+				    final String action = path.get(2);
+				    final String functionName = path.get(3);
+
+				    attachmentName = path.get(4);
+				    docID = action + "/" + functionName;
+
+				    if (action.equalsIgnoreCase("_list")) { // list function
+					    message = message.replaceFirst("_Attachment", "_ListFunction");
+				    } else if (action.equalsIgnoreCase("_show")) { // show function
+					    message = message.replaceFirst("_Attachment", "_ShowFunction");
+				    }
+			    } else {
+				    message = message.replaceFirst("_Attachment", "_DesignDocument");
+				    attachmentName = pathLen > 3 ? path.get(3) : null;
+			    }
+		    } else {
+			    if (pathLen > 3) {
+				    List<String> subList = path.subList(2, pathLen);
+				    StringBuilder sb = new StringBuilder();
+				    Iterator<String> iter = subList.iterator();
+				    while(iter.hasNext()) {
+					    sb.append(iter.next());
+					    if(iter.hasNext()) {
+						    //sb.append("%2F");
+						    sb.append("/");
+					    }
+				    }
+				    attachmentName = sb.toString();
+			    }
+		    }
+	    }
 
         //Log.d(TAG, "path: " + path + " message: " + message + " docID: " + docID + " attachmentName: " + attachmentName);
 
@@ -1722,6 +1740,29 @@ public class Router implements Database.ChangeListener {
     	List<Object> keys = (List<Object>) bodyDict.get("keys");
     	return queryDesignDoc(designDocID, viewName, keys);
     }
+
+	public Status do_GET_ListFunction(Database db, String designDocID, String viewName) throws CouchbaseLiteException {
+		final List<String> path = Arrays.asList(designDocID.split("/"));
+		final Status designResponse = queryDesignDoc(path.get(0), viewName, null);
+		if (designResponse.getCode() != Status.OK) return designResponse; // Stop here if the design doc response was not correct
+
+		// TODO: Fix properly
+		// get the properties here
+		final Map<String, Object> properties = connection.getResponseBody().getProperties();
+		final List<Map<String, Object>> items = (List<Map<String, Object>>) properties.get("rows");
+
+		final RevisionInternal rev = db.getDocumentWithIDAndRev(String.format("_design/%s", path.get(0)), null, EnumSet.noneOf(TDContentOptions.class));
+		final Map<String,Object> lists = (Map<String,Object>)rev.getProperties().get("lists");
+
+		final String listFunc = (String) lists.get(path.get(1));
+
+
+		return null;
+	}
+
+	public Status do_GET_ShowFunction(Database db, String designDocID, String viewName) throws CouchbaseLiteException {
+		return null;
+	}
 
     @Override
     public String toString() {
