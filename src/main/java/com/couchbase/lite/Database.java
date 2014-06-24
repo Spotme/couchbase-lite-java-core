@@ -695,7 +695,7 @@ public final class Database {
     @InterfaceAudience.Public
     public Replication createPushReplication(URL remote) {
         final boolean continuous = false;
-        return new Pusher(this, remote, continuous, manager.getWorkExecutor());
+        return new Pusher(this, remote, null, continuous, manager.getWorkExecutor());
     }
 
     /**
@@ -707,7 +707,7 @@ public final class Database {
     @InterfaceAudience.Public
     public Replication createPullReplication(URL remote) {
         final boolean continuous = false;
-        return new Puller(this, remote, continuous, manager.getWorkExecutor());
+        return new Puller(this, remote, null, continuous, manager.getWorkExecutor());
     }
 
 
@@ -3977,10 +3977,14 @@ public final class Database {
      * @exclude
      */
     @InterfaceAudience.Private
-    public Replication getActiveReplicator(URL remote, boolean push) {
+    public Replication getActiveReplicator(String replicationID, URL remote, boolean push) {
         if(activeReplicators != null) {
             for (Replication replicator : activeReplicators) {
-                if(replicator.getRemoteUrl().equals(remote) && replicator.isPull() == !push && replicator.isRunning()) {
+                if(replicator.getReplicationID().equals(replicationID)
+	                && replicator.getRemoteUrl().equals(remote)
+		            && replicator.isPull() == !push
+		            && replicator.isRunning()) {
+
                     return replicator;
                 }
             }
@@ -3993,7 +3997,7 @@ public final class Database {
      */
     @InterfaceAudience.Private
     public Replication getReplicator(URL remote, boolean push, boolean continuous, ScheduledExecutorService workExecutor) {
-        Replication replicator = getReplicator(remote, null, push, continuous, workExecutor);
+        Replication replicator = getReplicator(remote, null, null, push, continuous, workExecutor);
 
     	return replicator;
     }
@@ -4017,12 +4021,12 @@ public final class Database {
      * @exclude
      */
     @InterfaceAudience.Private
-    public Replication getReplicator(URL remote, HttpClientFactory httpClientFactory, boolean push, boolean continuous, ScheduledExecutorService workExecutor) {
-        Replication result = getActiveReplicator(remote, push);
+    public Replication getReplicator(URL remote, String replID, HttpClientFactory httpClientFactory, boolean push, boolean continuous, ScheduledExecutorService workExecutor) {
+        Replication result = getActiveReplicator(replID, remote, push);
         if(result != null) {
             return result;
         }
-        result = push ? new Pusher(this, remote, continuous, httpClientFactory, workExecutor) : new Puller(this, remote, continuous, httpClientFactory, workExecutor);
+        result = push ? new Pusher(this, remote, replID, continuous, httpClientFactory, workExecutor) : new Puller(this, remote, replID, continuous, httpClientFactory, workExecutor);
 
         return result;
     }

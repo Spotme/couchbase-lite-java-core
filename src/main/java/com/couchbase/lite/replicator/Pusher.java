@@ -56,16 +56,16 @@ public final class Pusher extends Replication implements Database.ChangeListener
      * Constructor
      */
     @InterfaceAudience.Private
-    /* package */ public Pusher(Database db, URL remote, boolean continuous, ScheduledExecutorService workExecutor) {
-        this(db, remote, continuous, null, workExecutor);
+    /* package */ public Pusher(Database db, URL remote, String replID, boolean continuous, ScheduledExecutorService workExecutor) {
+        this(db, remote, null, continuous, null, workExecutor);
     }
 
     /**
      * Constructor
      */
     @InterfaceAudience.Private
-    /* package */ public Pusher(Database db, URL remote, boolean continuous, HttpClientFactory clientFactory, ScheduledExecutorService workExecutor) {
-        super(db, remote, continuous, clientFactory, workExecutor);
+    /* package */ public Pusher(Database db, URL remote, String replID, boolean continuous, HttpClientFactory clientFactory, ScheduledExecutorService workExecutor) {
+        super(db, remote, replID, continuous, clientFactory, workExecutor);
         createTarget = false;
         observing = false;
     }

@@ -10,7 +10,6 @@ import com.couchbase.lite.RevisionList;
 import com.couchbase.lite.Status;
 import com.couchbase.lite.auth.Authenticator;
 import com.couchbase.lite.auth.AuthenticatorImpl;
-import com.couchbase.lite.auth.Authorizer;
 import com.couchbase.lite.auth.FacebookAuthorizer;
 import com.couchbase.lite.auth.PersonaAuthorizer;
 import com.couchbase.lite.internal.InterfaceAudience;
@@ -31,7 +30,6 @@ import com.couchbase.lite.util.URIUtils;
 
 import org.apache.http.Header;
 import org.apache.http.HttpResponse;
-import org.apache.http.client.CookieStore;
 import org.apache.http.client.HttpResponseException;
 import org.apache.http.cookie.Cookie;
 import org.apache.http.entity.mime.MultipartEntity;
@@ -99,6 +97,7 @@ public abstract class Replication implements NetworkReachabilityListener {
     private final Map<RemoteRequest, Future> requests;
     private String serverType;
     private String remoteCheckpointDocID;
+	private String replicationID;
 
     private CollectionUtils.Functor<Map<String,Object>,Map<String,Object>> propertiesTransformationBlock;
 
@@ -145,8 +144,8 @@ public abstract class Replication implements NetworkReachabilityListener {
      * @exclude
      */
     @InterfaceAudience.Private
-    /* package */ Replication(Database db, URL remote, boolean continuous, ScheduledExecutorService workExecutor) {
-        this(db, remote, continuous, null, workExecutor);
+    /* package */ Replication(Database db, URL remote, String replID, boolean continuous, ScheduledExecutorService workExecutor) {
+        this(db, remote, replID, continuous, null, workExecutor);
     }
 
     /**
@@ -154,9 +153,10 @@ public abstract class Replication implements NetworkReachabilityListener {
      * @exclude
      */
     @InterfaceAudience.Private
-    /* package */ Replication(Database db, URL remote, boolean continuous, HttpClientFactory clientFactory, ScheduledExecutorService workExecutor) {
+    /* package */ Replication(Database db, URL remote, String replID, boolean continuous, HttpClientFactory clientFactory, ScheduledExecutorService workExecutor) {
 
         this.db = db;
+	    this.replicationID = replID;
         this.continuous = continuous;
         this.workExecutor = workExecutor;
         this.remote = remote;
@@ -770,6 +770,14 @@ public abstract class Replication implements NetworkReachabilityListener {
     public String getSessionID() {
         return sessionID;
     }
+
+	/**
+	 * @exclude
+	 */
+	@InterfaceAudience.Private
+	public String getReplicationID() {
+		return replicationID;
+	}
 
     @InterfaceAudience.Private
     protected void checkSession() {

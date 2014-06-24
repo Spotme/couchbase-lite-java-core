@@ -445,10 +445,10 @@ public final class Manager {
         final boolean continuous = false;
 
         if (push) {
-            replicator = new Pusher(db, remote, continuous, getWorkExecutor());
+            replicator = new Pusher(db, remote, null, continuous, getWorkExecutor());
         }
         else {
-            replicator = new Puller(db, remote, continuous, getWorkExecutor());
+            replicator = new Puller(db, remote, null, continuous, getWorkExecutor());
         }
 
         replications.add(replicator);
@@ -537,6 +537,8 @@ public final class Manager {
         Boolean cancelBoolean = (Boolean)properties.get("cancel");
         boolean cancel = (cancelBoolean != null && cancelBoolean.booleanValue());
 
+	    String replicationID = (String) properties.get("_replication_id");
+
         // Map the 'source' and 'target' JSON params to a local database and remote URL:
         if(source == null || target == null) {
             throw new CouchbaseLiteException("source and target are both null", new Status(Status.BAD_REQUEST));
@@ -597,7 +599,7 @@ public final class Manager {
 
 
         if(!cancel) {
-            repl = db.getReplicator(remote, getDefaultHttpClientFactory(), push, continuous, getWorkExecutor());
+            repl = db.getReplicator(remote, replicationID, getDefaultHttpClientFactory(), push, continuous, getWorkExecutor());
             if(repl == null) {
                 throw new CouchbaseLiteException("unable to create replicator with remote: " + remote, new Status(Status.INTERNAL_SERVER_ERROR));
             }
@@ -627,7 +629,7 @@ public final class Manager {
 
         } else {
             // Cancel replication:
-            repl = db.getActiveReplicator(remote, push);
+            repl = db.getActiveReplicator(replicationID, remote, push);
             if(repl == null) {
                 throw new CouchbaseLiteException("unable to lookup replicator with remote: " + remote, new Status(Status.NOT_FOUND));
             }
