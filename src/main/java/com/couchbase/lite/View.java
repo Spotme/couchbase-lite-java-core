@@ -58,23 +58,40 @@ public final class View {
     private Mapper mapBlock;
     private Reducer reduceBlock;
     private TDViewCollation collation;
-    private static ViewCompiler compiler;
+    private static ViewCompiler viewCompiler;
+	private static FunctionCompiler functionCompiler;
 
     /**
      * The registered object, if any, that can compile map/reduce functions from source code.
      */
     @InterfaceAudience.Public
-    public static ViewCompiler getCompiler() {
-        return compiler;
+    public static ViewCompiler getViewCompiler() {
+        return viewCompiler;
     }
 
     /**
      * Registers an object that can compile map/reduce functions from source code.
      */
     @InterfaceAudience.Public
-    public static void setCompiler(ViewCompiler compiler) {
-        View.compiler = compiler;
+    public static void setViewCompiler(ViewCompiler compiler) {
+        View.viewCompiler = compiler;
     }
+
+	/**
+	 * A new instance of the registered object, if any, that can compile map/reduce functions from source code.
+	 */
+	@InterfaceAudience.Public
+	public static FunctionCompiler getFunctionCompiler() {
+		return (functionCompiler != null) ? functionCompiler.newInstance() : null;
+	}
+
+	/**
+	 * Registers an object that can compile map/reduce functions from source code.
+	 */
+	@InterfaceAudience.Public
+	public static void setFunctionCompiler(FunctionCompiler compiler) {
+		View.functionCompiler = compiler;
+	}
 
 
     /**

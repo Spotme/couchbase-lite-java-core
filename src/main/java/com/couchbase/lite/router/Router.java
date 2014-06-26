@@ -9,6 +9,7 @@ import com.couchbase.lite.CouchbaseLiteException;
 import com.couchbase.lite.Database;
 import com.couchbase.lite.Database.TDContentOptions;
 import com.couchbase.lite.DocumentChange;
+import com.couchbase.lite.FunctionCompiler;
 import com.couchbase.lite.Manager;
 import com.couchbase.lite.Mapper;
 import com.couchbase.lite.Misc;
@@ -439,17 +440,18 @@ public class Router implements Database.ChangeListener {
 			    docID = docID.substring(8); // strip the "_design/" prefix
 			    attachmentName = pathLen > 3 ? path.get(3) : null;
 
-			    if (pathLen > 4) { // _list or _show functions
+			    if (pathLen > 3) { // _list or _show functions
 				    final String action = path.get(2);
 				    final String functionName = path.get(3);
 
-				    attachmentName = path.get(4);
-				    docID = action + "/" + functionName;
-
 				    if (action.equalsIgnoreCase("_list")) { // list function
-					    message = message.replaceFirst("_Attachment", "_ListFunction");
+					    message = message.replaceFirst("_DesignDocument", "_ListFunction");
+					    attachmentName = path.get(4);
+					    docID = docID + "/" + functionName;
 				    } else if (action.equalsIgnoreCase("_show")) { // show function
-					    message = message.replaceFirst("_Attachment", "_ShowFunction");
+					    message = message.replaceFirst("_DesignDocument", "_ShowFunction");
+					    attachmentName = path.get(3);
+					    docID = docID + "/" + functionName;
 				    }
 			    } else {
 				    message = message.replaceFirst("_Attachment", "_DesignDocument");
@@ -1638,7 +1640,7 @@ public class Router implements Database.ChangeListener {
         if(mapSource == null) {
             return null;
         }
-        Mapper mapBlock = View.getCompiler().compileMap(mapSource, language);
+        Mapper mapBlock = View.getViewCompiler().compileMap(mapSource, language);
         if(mapBlock == null) {
             Log.w(Log.TAG_ROUTER, "View %s has unknown map function: %s", viewName, mapSource);
             return null;
@@ -1646,7 +1648,7 @@ public class Router implements Database.ChangeListener {
         String reduceSource = (String)viewProps.get("reduce");
         Reducer reduceBlock = null;
         if(reduceSource != null) {
-            reduceBlock = View.getCompiler().compileReduce(reduceSource, language);
+            reduceBlock = View.getViewCompiler().compileReduce(reduceSource, language);
             if(reduceBlock == null) {
                 Log.w(Log.TAG_ROUTER, "View %s has unknown reduce function: %s", viewName, reduceBlock);
                 return null;
@@ -1742,6 +1744,7 @@ public class Router implements Database.ChangeListener {
     }
 
 	public Status do_GET_ListFunction(Database db, String designDocID, String viewName) throws CouchbaseLiteException {
+		// designDocID is "designDoc/functionName
 		final List<String> path = Arrays.asList(designDocID.split("/"));
 		final Status designResponse = queryDesignDoc(path.get(0), viewName, null);
 		if (designResponse.getCode() != Status.OK) return designResponse; // Stop here if the design doc response was not correct
@@ -1752,17 +1755,54 @@ public class Router implements Database.ChangeListener {
 		final List<Map<String, Object>> items = (List<Map<String, Object>>) properties.get("rows");
 
 		final RevisionInternal rev = db.getDocumentWithIDAndRev(String.format("_design/%s", path.get(0)), null, EnumSet.noneOf(TDContentOptions.class));
-		final Map<String,Object> lists = (Map<String,Object>)rev.getProperties().get("lists");
+		final Map<String, Object> designDoc = rev.getProperties();
+		final Map<String,Object> lists = (Map<String,Object>) designDoc.get("lists");
 
 		final String listFunc = (String) lists.get(path.get(1));
+		if (listFunc == null) return new Status(Status.NOT_FOUND);
 
+		final Map<String, Object> headObj = new HashMap<String, Object>();
+		headObj.put("total_rows", items.size());
+		headObj.put("offset", 0);
 
+		final FunctionCompiler compiler = View.getFunctionCompiler();
 
-		return null;
+		compiler.setRequestObject(connection);
+		compiler.setDesignDocument(designDoc);
+		compiler.setViewResult(properties);
+
+		final String listResult = compiler.list(path.get(1), headObj);
+
+		connection.setResponseBody(Body.bodyWithJSON(listResult.getBytes()));
+
+		return new Status(Status.OK);
 	}
 
-	public Status do_GET_ShowFunction(Database db, String designDocID, String viewName) throws CouchbaseLiteException {
-		return null;
+	public Status do_GET_ShowFunction(Database db, String designDocID, String showName) throws CouchbaseLiteException {
+		// designDocID is "designDoc/functionName
+		final List<String> path = Arrays.asList(designDocID.split("/"));
+
+		final RevisionInternal rev = db.getDocumentWithIDAndRev(String.format("_design/%s", path.get(0)), null, EnumSet.noneOf(TDContentOptions.class));
+		final Map<String, Object> designDoc = rev.getProperties();
+
+		final FunctionCompiler compiler = View.getFunctionCompiler();
+
+		compiler.setRequestObject(connection);
+		compiler.setDesignDocument(designDoc);
+
+		final Map<String, Object> document;
+
+		if (path.size() > 2) { // we have to get a doc
+			document = db.getDocumentWithIDAndRev(path.get(2), null, EnumSet.noneOf(TDContentOptions.class)).getProperties();
+		} else {
+			document = new HashMap<String, Object>();
+		}
+
+		final String showResult = compiler.show(showName, document);
+
+		connection.setResponseBody(Body.bodyWithJSON(showResult.getBytes()));
+
+		return new Status(Status.OK);
 	}
 
     @Override

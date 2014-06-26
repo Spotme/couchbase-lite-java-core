@@ -2,30 +2,36 @@ package com.couchbase.lite;
 
 import com.couchbase.lite.router.URLConnection;
 
-import java.util.List;
 import java.util.Map;
 
 public interface FunctionCompiler {
 
 	/**
-	 * Invokes a list function and returns the resulting document
-	 *
-	 * @param head              Information about the view.
-	 * @param requestProperties A correctly formatted properties object.
-	 *
-	 * @return A list of objects
+	 * @return  A formatted object with the necessary request properties.
 	 */
-	public List<Map<String, Object>> list(final Map<String, Object> head, final Map<String, Object> requestProperties);
+	public Map<String, Object> getRequestProperties();
 
 	/**
-	 * Invoke a show function
+	 * Invokes a list function and returns the resulting document
 	 *
-	 * @param document          Contents of the document being analyzed.
-	 * @param requestProperties A correctly formatted properties object.
+	 * @param listName          Name of the list function to execute
+	 * @param head              Information about the view.
 	 *
-	 * @return The modified object
+	 * @return A JSON representation of the response
 	 */
-	public Object show(final Map<String, Object> document, final Map<String, Object> requestProperties);
+	public String list(final String listName, final Map<String, Object> head) throws CouchbaseLiteException;
+
+	/**
+	 * @return A new instance of this compiler
+	 */
+	public FunctionCompiler newInstance();
+
+	/**
+	 * Set the design document that this compiler will work with
+	 *
+	 * @param document  Design document
+	 */
+	public void setDesignDocument(final Map<String, Object> document);
 
 	/**
 	 * Sets the request object and extracts the relevant info
@@ -35,7 +41,17 @@ public interface FunctionCompiler {
 	public void setRequestObject(final URLConnection conn);
 
 	/**
-	 * @return  A formatted object with the necessary request properties.
+	 * @param result The result of the view where this list function was invoked
 	 */
-	public Map<String, Object> getRequestProperties();
+	public void setViewResult(final Map<String, Object> result);
+
+	/**
+	 * Invoke a show function
+	 *
+	 * @param showName          Name of the show function to execute
+	 * @param document          Contents of the document being analyzed.
+	 *
+	 * @return A JSON response of the response
+	 */
+	public String show(final String showName, final Map<String, Object> document) throws CouchbaseLiteException;
 }
