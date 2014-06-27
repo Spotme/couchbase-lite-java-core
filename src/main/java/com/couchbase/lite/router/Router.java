@@ -1778,6 +1778,41 @@ public class Router implements Database.ChangeListener {
 		return new Status(Status.OK);
 	}
 
+	public Status do_POST_ListFunction(Database db, String designDocID, String viewName) throws CouchbaseLiteException {
+		// designDocID is "designDoc/functionName
+		final List<String> path = Arrays.asList(designDocID.split("/"));
+		final Status designResponse = queryDesignDoc(path.get(0), viewName, null);
+		if (designResponse.getCode() != Status.OK) return designResponse; // Stop here if the design doc response was not correct
+
+		// TODO: Fix properly
+		// get the properties here
+		final Map<String, Object> properties = connection.getResponseBody().getProperties();
+		final List<Map<String, Object>> items = (List<Map<String, Object>>) properties.get("rows");
+
+		final RevisionInternal rev = db.getDocumentWithIDAndRev(String.format("_design/%s", path.get(0)), null, EnumSet.noneOf(TDContentOptions.class));
+		final Map<String, Object> designDoc = rev.getProperties();
+		final Map<String,Object> lists = (Map<String,Object>) designDoc.get("lists");
+
+		final String listFunc = (String) lists.get(path.get(1));
+		if (listFunc == null) return new Status(Status.NOT_FOUND);
+
+		final Map<String, Object> headObj = new HashMap<String, Object>();
+		headObj.put("total_rows", items.size());
+		headObj.put("offset", 0);
+
+		final FunctionCompiler compiler = View.getFunctionCompiler();
+
+		compiler.setRequestObject(connection);
+		compiler.setDesignDocument(designDoc);
+		compiler.setViewResult(properties);
+
+		final String listResult = compiler.list(path.get(1), headObj);
+
+		connection.setResponseBody(Body.bodyWithJSON(listResult.getBytes()));
+
+		return new Status(Status.OK);
+	}
+
 	public Status do_GET_ShowFunction(Database db, String designDocID, String showName) throws CouchbaseLiteException {
 		// designDocID is "designDoc/functionName
 		final List<String> path = Arrays.asList(designDocID.split("/"));
