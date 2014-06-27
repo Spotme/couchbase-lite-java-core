@@ -30,15 +30,6 @@ public interface FunctionContainer {
 	public void log(final String msg);
 
 	/**
-	 * Require a JavaScript library from a database path or the application's assets, in that order
-	 *
-	 * @param path The path to the source file
-	 *
-	 * @return The contents of the file
-	 */
-	public String require(final String path);
-
-	/**
 	 * Sends a single string <em>chunk</em> in response.
 	 *
 	 * @param contents Text chunk.
