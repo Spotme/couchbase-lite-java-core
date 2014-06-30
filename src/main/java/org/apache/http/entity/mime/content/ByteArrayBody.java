@@ -26,11 +26,10 @@
  */
 package org.apache.http.entity.mime.content;
 
+import org.apache.http.entity.mime.MIME;
+
 import java.io.IOException;
 import java.io.OutputStream;
-
-import org.apache.http.entity.mime.MIME;
-import org.apache.http.entity.mime.content.AbstractContentBody;
 
 /**
  * Body part that is built using a byte array containing a file.

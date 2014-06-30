@@ -1,8 +1,8 @@
 package com.couchbase.lite;
 
-import java.util.EnumSet;
-
 import com.couchbase.lite.Database.TDContentOptions;
+
+import java.util.EnumSet;
 
 /**
  * Options for _changes feed

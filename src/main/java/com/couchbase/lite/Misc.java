@@ -1,10 +1,10 @@
 package com.couchbase.lite;
 
+import com.couchbase.lite.util.Log;
+
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.UUID;
-
-import com.couchbase.lite.util.Log;
 
 /**
  * @exclude

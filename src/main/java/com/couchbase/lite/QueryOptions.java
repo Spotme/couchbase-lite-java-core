@@ -17,10 +17,10 @@
 
 package com.couchbase.lite;
 
+import com.couchbase.lite.Database.TDContentOptions;
+
 import java.util.EnumSet;
 import java.util.List;
-
-import com.couchbase.lite.Database.TDContentOptions;
 
 /**
  * Standard query options for views.

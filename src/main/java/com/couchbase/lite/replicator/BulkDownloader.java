@@ -4,7 +4,6 @@ import com.couchbase.lite.Database;
 import com.couchbase.lite.Manager;
 import com.couchbase.lite.internal.InterfaceAudience;
 import com.couchbase.lite.internal.RevisionInternal;
-import com.couchbase.lite.support.CouchbaseLiteHttpClientFactory;
 import com.couchbase.lite.support.HttpClientFactory;
 import com.couchbase.lite.support.MultipartDocumentReader;
 import com.couchbase.lite.support.MultipartReader;

@@ -17,6 +17,8 @@
 
 package com.couchbase.lite;
 
+import com.couchbase.lite.util.Log;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -31,8 +33,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.zip.GZIPInputStream;
-
-import com.couchbase.lite.util.Log;
 
 /**
  * A persistent content-addressable store for arbitrary-size data blobs.

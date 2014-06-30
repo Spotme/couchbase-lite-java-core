@@ -1,7 +1,6 @@
 package com.couchbase.lite.replicator;
 
 import com.couchbase.lite.internal.InterfaceAudience;
-import com.couchbase.lite.support.HttpClientFactory;
 
 import org.apache.http.client.HttpClient;
 

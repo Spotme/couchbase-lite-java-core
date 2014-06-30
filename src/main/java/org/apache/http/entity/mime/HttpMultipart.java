@@ -27,6 +27,9 @@
 
 package org.apache.http.entity.mime;
 
+import org.apache.http.entity.mime.content.ContentBody;
+import org.apache.http.util.ByteArrayBuffer;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -35,9 +38,6 @@ import java.nio.CharBuffer;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
-
-import org.apache.http.entity.mime.content.ContentBody;
-import org.apache.http.util.ByteArrayBuffer;
 
 /**
  * HttpMultipart represents a collection of MIME multipart encoded content bodies. This class is

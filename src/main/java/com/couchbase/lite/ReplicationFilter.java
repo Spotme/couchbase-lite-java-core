@@ -1,7 +1,5 @@
 package com.couchbase.lite;
 
-import com.couchbase.lite.internal.RevisionInternal;
-
 import java.util.Map;
 
 /**

@@ -1,7 +1,7 @@
 package com.couchbase.lite;
 
-import com.couchbase.lite.internal.RevisionInternal;
 import com.couchbase.lite.internal.InterfaceAudience;
+import com.couchbase.lite.internal.RevisionInternal;
 import com.couchbase.lite.util.Log;
 
 import java.net.URL;
