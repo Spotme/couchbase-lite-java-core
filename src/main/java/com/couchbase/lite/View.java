@@ -30,6 +30,8 @@ import com.couchbase.lite.util.Log;
 import com.couchbase.lite.util.Utils;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
@@ -484,6 +486,7 @@ public final class View {
 
             boolean keepGoing = cursor.moveToNext();
             while (keepGoing) {
+                // Get row values now, before the code below advances 'r':
                 long docID = cursor.getLong(0);
 
                 // Reconstitute the document as a dictionary:
@@ -493,17 +496,23 @@ public final class View {
                     keepGoing = cursor.moveToNext();
                     continue;
                 }
+
                 String revId = cursor.getString(3);
                 byte[] json = cursor.getBlob(4);
 
                 boolean noAttachments = cursor.getInt(5) > 0;
 
+                final ArrayList<String> conflicts = new ArrayList<String>();
                 while ((keepGoing = cursor.moveToNext()) &&  cursor.getLong(0) == docID) {
                     // Skip rows with the same doc_id -- these are losing conflicts.
+                    final String conflictRev = cursor.getString(3);
+
+                    if (conflictRev != null) conflicts.add(conflictRev);
                 }
 
                 if (lastSequence > 0) {
                     // Find conflicts with documents from previous indexings.
+                    Boolean first = true;
                     String[] selectArgs2 = { Long.toString(docID), Long.toString(lastSequence) };
 
                     Cursor cursor2 = null;
@@ -516,24 +525,31 @@ public final class View {
 
                         if (cursor2.moveToNext()) {
                             String oldRevId = cursor2.getString(0);
-                            // This is the revision that used to be the 'winner'.
-                            // Remove its emitted rows:
-                            long oldSequence = cursor2.getLong(1);
-                            String[] args = {
-                                    Integer.toString(getViewId()),
-                                    Long.toString(oldSequence)
-                            };
-                            database.getDatabase().execSQL(
-                                    "DELETE FROM maps WHERE view_id=? AND sequence=?", args);
-                            if (RevisionInternal.CBLCompareRevIDs(oldRevId, revId) > 0) {
-                                // It still 'wins' the conflict, so it's the one that
-                                // should be mapped [again], not the current revision!
-                                revId = oldRevId;
-                                sequence = oldSequence;
+                            if (oldRevId != null) { conflicts.add(oldRevId); }
 
-                                String[] selectArgs3 = { Long.toString(sequence) };
-                                json = Utils.byteArrayResultForQuery(database.getDatabase(), "SELECT json FROM revs WHERE sequence=?", selectArgs3);
+                            if (first) {
+                                // This is the revision that used to be the 'winner'.
+                                // Remove its emitted rows:
+                                first = false;
+                                long oldSequence = cursor2.getLong(1);
+                                String[] args = {
+                                        Integer.toString(getViewId()),
+                                        Long.toString(oldSequence)
+                                };
+                                database.getDatabase().execSQL(
+                                        "DELETE FROM maps WHERE view_id=? AND sequence=?", args);
+                                if (RevisionInternal.CBLCompareRevIDs(oldRevId, revId) > 0) {
+                                    // It still 'wins' the conflict, so it's the one that
+                                    // should be mapped [again], not the current revision!
+                                    conflicts.remove(oldRevId);
+                                    conflicts.add(revId);
+                                    revId = oldRevId;
+                                    sequence = oldSequence;
 
+                                    String[] selectArgs3 = {Long.toString(sequence)};
+                                    json = Utils.byteArrayResultForQuery(database.getDatabase(), "SELECT json FROM revs WHERE sequence=?", selectArgs3);
+
+                                }
                             }
                         }
                     } finally {
@@ -542,13 +558,21 @@ public final class View {
                         }
                     }
 
-
+                    if (!first && !conflicts.isEmpty()) {
+                        // Re-sort the conflict array if we added more revisions to it:
+                        Collections.sort(conflicts, new Comparator<String>() {
+                            @Override
+                            public int compare(String rev1, String rev2) {
+                                return RevisionInternal.CBLCompareRevIDs(rev1, rev2);
+                            }
+                        });
+                    }
                 }
 
                 // Get the document properties, to pass to the map function:
                 EnumSet<TDContentOptions> contentOptions = EnumSet.noneOf(Database.TDContentOptions.class);
-                if (noAttachments)
-                    contentOptions.add(TDContentOptions.TDNoAttachments);
+                if (noAttachments) contentOptions.add(TDContentOptions.TDNoAttachments);
+
                 Map<String, Object> properties = database.documentPropertiesFromJSON(
                         json,
                         docId,
@@ -557,13 +581,18 @@ public final class View {
                         sequence,
                         contentOptions
                 );
+
                 if (properties != null) {
+                    if (!conflicts.isEmpty()) {
+                        // Add a "_conflicts" property if there were conflicting revisions:
+                        properties.put("_conflicts", conflicts);
+                    }
+
                     // Call the user-defined map() to emit new key/value
                     // pairs from this revision:
                     emitBlock.setSequence(sequence);
                     mapBlock.map(properties, emitBlock);
                 }
-
             }
 
             // Finally, record the last revision sequence number that was
