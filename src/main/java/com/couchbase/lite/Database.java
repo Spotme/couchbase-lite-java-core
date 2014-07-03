@@ -4009,7 +4009,7 @@ public final class Database {
     public Replication getReplicator(String sessionId) {
     	if(allReplicators != null) {
             for (Replication replicator : allReplicators) {
-                if(replicator.getSessionID().equals(sessionId)) {
+                if (replicator.getSessionID().equals(sessionId) || replicator.getReplicationID().equals(sessionId)) {
                     return replicator;
                 }
             }
