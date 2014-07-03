@@ -277,6 +277,7 @@ public class Router implements Database.ChangeListener {
             return result;
         }
         for (String component : pathString.split("/")) {
+            if (component.length() == 0) continue; // effectively ignores duplicated slashes
             result.add(URLDecoder.decode(component));
         }
         return result;
