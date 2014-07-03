@@ -920,7 +920,8 @@ public final class View {
                     if (options.isIncludeDocs()) {
                         Object valueObject = valueDoc.jsonObject();
                         // http://wiki.apache.org/couchdb/Introduction_to_CouchDB_views#Linked_documents
-                        if (valueObject instanceof Map && ((Map) valueObject).containsKey("_id")) {
+                        if (valueObject instanceof Map && ((Map) valueObject).containsKey("_id")
+                                && ((Map) valueObject).get("_id") instanceof String) {
                             String linkedDocId = (String) ((Map) valueObject).get("_id");
                             RevisionInternal linkedDoc = database.getDocumentWithIDAndRev(
                                     linkedDocId,
