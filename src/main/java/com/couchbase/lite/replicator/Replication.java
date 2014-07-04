@@ -730,7 +730,7 @@ public abstract class Replication implements NetworkReachabilityListener {
             lastSequence = lastSequenceIn;
             //if (!lastSequenceChanged) {
             //    lastSequenceChanged = true;
-            if (saveLastSequenceFuture.isDone() || !saveLastSequenceFuture.isCancelled()) {
+            if (saveLastSequenceFuture != null && (!saveLastSequenceFuture.isDone() || !saveLastSequenceFuture.isCancelled())) {
                 saveLastSequenceFuture.cancel(false);
             }
             saveLastSequenceFuture = workExecutor.schedule(new Runnable() {
