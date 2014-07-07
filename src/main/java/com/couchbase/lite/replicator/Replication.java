@@ -70,10 +70,6 @@ public abstract class Replication implements NetworkReachabilityListener {
     protected Database db;
     protected URL remote;
     protected String lastSequence;
-    //protected boolean lastSequenceChanged;
-    //protected Map<String, Object> remoteCheckpoint;
-    //protected boolean savingCheckpoint;
-    //protected boolean overdueForSave;
     protected boolean running;
     protected boolean active;
     protected Throwable error;
@@ -702,7 +698,7 @@ public abstract class Replication implements NetworkReachabilityListener {
      * @exclude
      */
     private void clearDbRef() {
-        if (/*savingCheckpoint && */lastSequence != null && db != null) {
+        if (lastSequence != null && db != null) {
             db.setLastSequence(lastSequence, remoteCheckpointDocID(), !isPull());
             db = null;
         } else {
@@ -728,19 +724,17 @@ public abstract class Replication implements NetworkReachabilityListener {
         if (lastSequenceIn != null && !lastSequenceIn.equals(lastSequence)) {
             Log.v(Log.TAG_SYNC, "%s: Setting lastSequence to %s from(%s)", this, lastSequenceIn, lastSequence );
             lastSequence = lastSequenceIn;
-            //if (!lastSequenceChanged) {
-            //    lastSequenceChanged = true;
+
             if (saveLastSequenceFuture != null && (!saveLastSequenceFuture.isDone() || !saveLastSequenceFuture.isCancelled())) {
                 saveLastSequenceFuture.cancel(false);
             }
-            saveLastSequenceFuture = workExecutor.schedule(new Runnable() {
 
+            saveLastSequenceFuture = workExecutor.schedule(new Runnable() {
                 @Override
                 public void run() {
                     saveLastSequence();
                 }
             }, 2 * 1000, TimeUnit.MILLISECONDS);
-            //}
         }
     }
 
@@ -963,7 +957,7 @@ public abstract class Replication implements NetworkReachabilityListener {
                     if (!continuous) {
                         Log.d(Log.TAG_SYNC, "%s since !continuous, calling stopped()", this);
                         stopped();
-                    } else if (error != null) /*(revisionsFailed > 0)*/ {
+                    } else if (error != null) {
                         Log.d(Log.TAG_SYNC, "%s: Failed to xfer %d revisions, will retry in %d sec",
                                 this,
                                 revisionsFailed,
@@ -1222,42 +1216,6 @@ public abstract class Replication implements NetworkReachabilityListener {
         lastSequence = localLastSequence;
         Log.d(Log.TAG_SYNC, "%s: Replicating from lastSequence=%s", this, lastSequence);
         beginReplicating();
-
-//        asyncTaskStarted();
-//        sendAsyncRequest("GET", "/_local/" + checkpointId, null, new RemoteRequestCompletionBlock() {
-//
-//            @Override
-//            public void onCompletion(Object result, Throwable e) {
-//                try {
-//
-//                    if (e != null && !is404(e)) {
-//                        Log.w(Log.TAG_SYNC, "%s: error getting remote checkpoint", e, this);
-//                        setError(e);
-//                    } else {
-//                        if (e != null && is404(e)) {
-//                            Log.d(Log.TAG_SYNC, "%s: 404 error getting remote checkpoint %s, calling maybeCreateRemoteDB", this, remoteCheckpointDocID());
-//                            maybeCreateRemoteDB();
-//                        }
-//                        Map<String, Object> response = (Map<String, Object>) result;
-//                        remoteCheckpoint = response;
-//                        String remoteLastSequence = null;
-//                        if (response != null) {
-//                            remoteLastSequence = (String) response.get("lastSequence");
-//                        }
-//                        if (remoteLastSequence != null && remoteLastSequence.equals(localLastSequence)) {
-//                            lastSequence = localLastSequence;
-//                            Log.d(Log.TAG_SYNC, "%s: Replicating from lastSequence=%s", this, lastSequence);
-//                        } else {
-//                            Log.d(Log.TAG_SYNC, "%s: lastSequence mismatch: I had: %s, remote had: %s", this, localLastSequence, remoteLastSequence);
-//                        }
-//                        beginReplicating();
-//                    }
-//                } finally {
-//                    asyncTaskFinished(1);
-//                }
-//            }
-//
-//        });
     }
 
     /**
@@ -1265,87 +1223,12 @@ public abstract class Replication implements NetworkReachabilityListener {
      */
     @InterfaceAudience.Private
     public void saveLastSequence() {
-//        if (!lastSequenceChanged) {
-//            return;
-//        }
-//        lastSequenceChanged = false;
         if (remoteCheckpointDocID == null) {
             Log.w(Log.TAG_SYNC, "%s: remoteCheckpointDocID is null, aborting saveLastSequence()", this);
             return;
         }
 
         db.setLastSequence(lastSequence, remoteCheckpointDocID, !isPull());
-
-//        if (savingCheckpoint) {
-//            // If a save is already in progress, don't do anything. (The completion block will trigger
-//            // another save after the first one finishes.)
-//            overdueForSave = true;
-//            return;
-//        }
-//
-//        lastSequenceChanged = false;
-//        overdueForSave = false;
-//
-//        Log.d(Log.TAG_SYNC, "%s: saveLastSequence() called. lastSequence: %s", this, lastSequence);
-//        final Map<String, Object> body = new HashMap<String, Object>();
-//        if (remoteCheckpoint != null) {
-//            body.putAll(remoteCheckpoint);
-//        }
-//        body.put("lastSequence", lastSequence);
-//
-//        String remoteCheckpointDocID = remoteCheckpointDocID();
-//        if (remoteCheckpointDocID == null) {
-//            Log.w(Log.TAG_SYNC, "%s: remoteCheckpointDocID is null, aborting saveLastSequence()", this);
-//            return;
-//        }
-//
-//        savingCheckpoint = true;
-//        final String checkpointID = remoteCheckpointDocID;
-//        Log.d(Log.TAG_SYNC, "%s: put remote _local document.  checkpointID: %s", this, checkpointID);
-//        sendAsyncRequest("PUT", "/_local/" + checkpointID, body, new RemoteRequestCompletionBlock() {
-//
-//            @Override
-//            public void onCompletion(Object result, Throwable e) {
-//                savingCheckpoint = false;
-//                if (e != null) {
-//                    Log.w(Log.TAG_SYNC, "%s: Unable to save remote checkpoint", e, this);
-//                }
-//                if (db == null) {
-//                    Log.w(Log.TAG_SYNC, "%s: Database is null, ignoring remote checkpoint response", this);
-//                    return;
-//                }
-//                if (!db.isOpen()) {
-//                    Log.w(Log.TAG_SYNC, "%s: Database is closed, ignoring remote checkpoint response", this);
-//                    return;
-//                }
-//                if (e != null) {
-//                    // Failed to save checkpoint:
-//                    switch (getStatusFromError(e)) {
-//                        case Status.NOT_FOUND:
-//                            remoteCheckpoint = null;  // doc deleted or db reset
-//                            overdueForSave = true; // try saving again
-//                            break;
-//                        case Status.CONFLICT:
-//                            refreshRemoteCheckpointDoc();
-//                            break;
-//                        default:
-//                            // TODO: On 401 or 403, and this is a pull, remember that remote
-//                            // TODo: is read-only & don't attempt to read its checkpoint next time.
-//                            break;
-//                    }
-//                } else {
-//                    // Saved checkpoint:
-//                    Map<String, Object> response = (Map<String, Object>) result;
-//                    body.put("_rev", response.get("rev"));
-//                    remoteCheckpoint = body;
-//                    db.setLastSequence(lastSequence, checkpointID, !isPull());
-//                }
-//                if (overdueForSave) {
-//                    saveLastSequence();
-//                }
-//
-//            }
-//        });
     }
 
     @InterfaceAudience.Public
@@ -1387,26 +1270,6 @@ public abstract class Replication implements NetworkReachabilityListener {
                     lastSequence = null;
                     setError(null);
                 }
-
-                /*
-                Log.d(Log.TAG_SYNC, "%s: Shutting down remoteRequestExecutor", this);
-                List<Runnable> tasksAwaitingExecution = remoteRequestExecutor.shutdownNow();
-                for (Runnable runnable : tasksAwaitingExecution) {
-                    Log.d(Log.TAG_SYNC, "%s: runnable: %s", this, runnable);
-                    if (runnable instanceof RemoteRequest) {
-                        RemoteRequest remoteRequest = (RemoteRequest) runnable;
-                        Log.v(Log.TAG_SYNC, "%s: request awaiting execution: %s underlying req: %s", this, remoteRequest, remoteRequest.getRequest().getURI());
-                    }
-                }
-
-                boolean succeeded = false;
-                try {
-                    succeeded = remoteRequestExecutor.awaitTermination(30, TimeUnit.SECONDS);
-                } catch (InterruptedException e) {
-                    Log.e(Log.TAG_SYNC, "%s: timeout remoteRequestExecutor.awaitTermination", this, e);
-                }
-                Log.d(Log.TAG_SYNC, "%s: remoteRequestExecutor.awaitTermination succeeded: %s", this, succeeded);
-                */
 
                 remoteRequestExecutor = Executors.newCachedThreadPool();
                 checkSession();
@@ -1552,41 +1415,6 @@ public abstract class Replication implements NetworkReachabilityListener {
         }
         return Status.UNKNOWN;
     }
-
-//    /**
-//     * Variant of -fetchRemoveCheckpointDoc that's used while replication is running, to reload the
-//     * checkpoint to get its current revision number, if there was an error saving it.
-//     */
-//    @InterfaceAudience.Private
-//    private void refreshRemoteCheckpointDoc() {
-//        Log.d(Log.TAG_SYNC, "%s: Refreshing remote checkpoint to get its _rev...", this);
-//        savingCheckpoint = true;
-//        asyncTaskStarted();
-//        sendAsyncRequest("GET", "/_local/" + remoteCheckpointDocID(), null, new RemoteRequestCompletionBlock() {
-//
-//            @Override
-//            public void onCompletion(Object result, Throwable e) {
-//                try {
-//                    if (db == null) {
-//                        Log.w(Log.TAG_SYNC, "%s: db == null while refreshing remote checkpoint.  aborting", this);
-//                        return;
-//                    }
-//                    savingCheckpoint = false;
-//                    if (e != null && getStatusFromError(e) != Status.NOT_FOUND) {
-//                        Log.e(Log.TAG_SYNC, "%s: Error refreshing remote checkpoint", e, this);
-//                    } else {
-//                        Log.d(Log.TAG_SYNC, "%s: Refreshed remote checkpoint: %s", this, result);
-//                        remoteCheckpoint = (Map<String, Object>) result;
-//                        lastSequenceChanged = true;
-//                        saveLastSequence();  // try saving again
-//                    }
-//                } finally {
-//                    asyncTaskFinished(1);
-//                }
-//            }
-//        });
-//
-//    }
 
     @InterfaceAudience.Private
     protected Status statusFromBulkDocsResponseItem(Map<String, Object> item) {
