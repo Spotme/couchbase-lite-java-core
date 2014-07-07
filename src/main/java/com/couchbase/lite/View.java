@@ -28,6 +28,8 @@ import com.couchbase.lite.storage.SQLiteStorageEngine;
 import com.couchbase.lite.support.JsonDocument;
 import com.couchbase.lite.util.Log;
 import com.couchbase.lite.util.Utils;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -457,9 +459,19 @@ public final class View {
                         } else{
                             valueJson = Manager.getObjectMapper().writeValueAsString(value);
                         }
+
+                        this.emitJSON(keyJson, valueJson);
+                    } catch (Exception e) {
+                        Log.e(Log.TAG_VIEW, "Error emitting", e);
+                        // find a better way to propagate this back
+                    }
+                }
+
+                @Override
+                public void emitJSON(String keyJson, String valueJson) {
+                    try {
                         //Log.v(Log.TAG_VIEW, "    emit(" + keyJson + ", "
                         //        + valueJson + ")");
-
                         ContentValues insertValues = new ContentValues();
                         insertValues.put("view_id", getViewId());
                         insertValues.put("sequence", sequence);
