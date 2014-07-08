@@ -119,7 +119,11 @@ public final class Manager {
         Log.i(Database.TAG, "Starting Manager version: %s", Manager.VERSION);
 
         this.context = context;
-        this.directoryFile = context.getFilesDir();
+
+        this.directoryFile = (options != null && options.getDatabaseDir() != null)
+                ? options.getDatabaseDir()
+                : context.getFilesDir();
+
         this.options = (options != null) ? options : DEFAULT_OPTIONS;
         this.databases = new HashMap<String, Database>();
         this.replications = new ArrayList<Replication>();
