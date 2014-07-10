@@ -8,7 +8,6 @@ import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.StatusLine;
-import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.HttpResponseException;
 import org.apache.http.client.methods.HttpUriRequest;
@@ -144,7 +143,7 @@ public class RemoteMultipartDownloaderRequest extends RemoteRequest {
             error = e;
             respondWithResult(fullBody, e, response);
         } finally {
-            Log.e(Log.TAG_REMOTE_REQUEST, "%s: executeRequest() finally", this);
+//            Log.e(Log.TAG_REMOTE_REQUEST, "%s: executeRequest() finally", this);
         }
     }
 

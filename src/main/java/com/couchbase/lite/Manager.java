@@ -135,7 +135,6 @@ public final class Manager {
 
         upgradeOldDatabaseFiles(directoryFile);
         workExecutor = Executors.newSingleThreadScheduledExecutor();
-
     }
 
     /**
@@ -479,7 +478,7 @@ public final class Manager {
             if (path == null) {
                 return null;
             }
-            db = new Database(path, this);
+            db = new Database(path, this, options.getDatabasePassword());
             if (mustExist && !db.exists()) {
                 Log.w(Database.TAG, "mustExist is true and db (%s) does not exist", name);
                 return null;

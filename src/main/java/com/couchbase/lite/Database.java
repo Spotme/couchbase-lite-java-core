@@ -99,6 +99,7 @@ public final class Database {
     private Cache<String, Document> docCache;
     private List<DocumentChange> changesToNotify;
     private boolean postingChangeNotifications;
+    private String password;
 
     /**
      * Each database can have an associated PersistentCookieStore,
@@ -228,6 +229,15 @@ public final class Database {
      */
     @InterfaceAudience.Private
     public Database(String path, Manager manager) {
+        this(path, manager, null);
+    }
+
+    /**
+     * Constructor
+     * @exclude
+     */
+    @InterfaceAudience.Private
+    public Database(String path, Manager manager, String password) {
         assert(new File(path).isAbsolute()); //path must be absolute
         this.path = path;
         this.name = FileDirUtils.getDatabaseNameFromPath(path);
@@ -238,6 +248,7 @@ public final class Database {
         this.changesToNotify = new ArrayList<DocumentChange>();
         this.activeReplicators =  Collections.newSetFromMap(new ConcurrentHashMap());
         this.allReplicators = Collections.newSetFromMap(new ConcurrentHashMap());
+        this.password = password;
     }
 
     /**
@@ -908,7 +919,7 @@ public final class Database {
         database = SQLiteStorageEngineFactory.createStorageEngine();
 
         // Try to open the storage engine and stop if we fail.
-        if (database == null || !database.open(path)) {
+        if (database == null || !database.open(path, password)) {
             String msg = "Unable to create a storage engine, fatal error";
             Log.e(Database.TAG, msg);
             throw new IllegalStateException(msg);
