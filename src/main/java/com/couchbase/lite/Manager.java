@@ -10,6 +10,7 @@ import com.couchbase.lite.replicator.Replication;
 import com.couchbase.lite.support.FileDirUtils;
 import com.couchbase.lite.support.HttpClientFactory;
 import com.couchbase.lite.support.Version;
+import com.couchbase.lite.util.FileEncryptionUtils;
 import com.couchbase.lite.util.Log;
 import com.couchbase.lite.util.StreamUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -35,6 +36,10 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import javax.crypto.SecretKey;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 
 /**
  * Top-level CouchbaseLite object; manages a collection of databases as a CouchDB server does.
@@ -76,6 +81,8 @@ public final class Manager {
     private ScheduledExecutorService workExecutor;
     private HttpClientFactory defaultHttpClientFactory;
     private Context context;
+    private IvParameterSpec encryptionIv;
+    private SecretKey encryptionKey;
 
     /**
      * @exclude
@@ -127,6 +134,17 @@ public final class Manager {
         this.options = (options != null) ? options : DEFAULT_OPTIONS;
         this.databases = new HashMap<String, Database>();
         this.replications = new ArrayList<Replication>();
+
+        if (options.getDatabasePassword() != null) {
+            try {
+                this.encryptionIv = new IvParameterSpec(options.getDatabasePassword().getBytes());
+                this.encryptionKey = new SecretKeySpec(options.getDatabasePassword().getBytes(), "AES");
+
+                FileEncryptionUtils.setKey(encryptionKey, encryptionIv);
+            } catch (Exception e) {
+                // ...
+            }
+        }
 
         directoryFile.mkdirs();
         if (!directoryFile.isDirectory()) {

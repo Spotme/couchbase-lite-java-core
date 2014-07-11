@@ -34,6 +34,7 @@ import com.couchbase.lite.support.FileDirUtils;
 import com.couchbase.lite.support.HttpClientFactory;
 import com.couchbase.lite.support.PersistentCookieStore;
 import com.couchbase.lite.util.CollectionUtils;
+import com.couchbase.lite.util.FileEncryptionUtils;
 import com.couchbase.lite.util.Log;
 import com.couchbase.lite.util.StreamUtils;
 import com.couchbase.lite.util.TextUtils;
@@ -2875,25 +2876,28 @@ public final class Database {
 
         return rev.mutateAttachments(new CollectionUtils.Functor<Map<String, Object>, Map<String, Object>>() {
             public Map<String, Object> invoke(Map<String, Object> attachment) {
-                if (!attachment.containsKey("follows")) {
-                    return attachment;
-                }
-                URL fileURL = fileForAttachmentDict(attachment);
-                byte[] fileData = null;
+                if (!attachment.containsKey("follows")) return attachment;
+
                 try {
-                    InputStream is = fileURL.openStream();
-                    ByteArrayOutputStream os = new ByteArrayOutputStream();
+                    final URL fileURL = fileForAttachmentDict(attachment);
+
+                    final InputStream is = FileEncryptionUtils.readFile(new File(fileURL.toURI()));
+                    final ByteArrayOutputStream os = new ByteArrayOutputStream();
+
                     StreamUtils.copyStream(is,os);
-                    fileData = os.toByteArray();
-                } catch (IOException e) {
+
+                    byte[] fileData = os.toByteArray();
+
+                    final Map<String, Object> editedAttachment = new HashMap<String, Object>(attachment);
+
+                    editedAttachment.remove("follows");
+                    editedAttachment.put("data",Base64.encodeBytes(fileData));
+
+                    return editedAttachment;
+                } catch (Exception e) {
                     Log.e(Log.TAG_SYNC,"could not retrieve attachment data: %S",e);
                     return null;
                 }
-
-                Map<String, Object> editedAttachment = new HashMap<String, Object>(attachment);
-                editedAttachment.remove("follows");
-                editedAttachment.put("data",Base64.encodeBytes(fileData));
-                return editedAttachment;
             }
         });
     }

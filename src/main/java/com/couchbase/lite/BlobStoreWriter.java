@@ -1,12 +1,12 @@
 package com.couchbase.lite;
 
 import com.couchbase.lite.support.Base64;
+import com.couchbase.lite.util.FileEncryptionUtils;
 import com.couchbase.lite.util.Log;
 
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.MessageDigest;
@@ -43,27 +43,25 @@ public class BlobStoreWriter {
         try {
             sha1Digest = MessageDigest.getInstance("SHA-1");
             sha1Digest.reset();
+
             md5Digest = MessageDigest.getInstance("MD5");
             md5Digest.reset();
+
+            openTempFile();
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);
-        }
-
-        try {
-            openTempFile();
         } catch (FileNotFoundException e) {
             throw new IllegalStateException(e);
         }
-
     }
 
     private void openTempFile() throws FileNotFoundException {
+        final String uuid = Misc.TDCreateUUID();
+        final String filename = String.format("%s.blobtmp", uuid);
+        final File tempDir = store.tempDir();
 
-        String uuid = Misc.TDCreateUUID();
-        String filename = String.format("%s.blobtmp", uuid);
-        File tempDir = store.tempDir();
         tempFile = new File(tempDir, filename);
-        outStream = new BufferedOutputStream(new FileOutputStream(tempFile));
+        outStream = new BufferedOutputStream(FileEncryptionUtils.writeFile(tempFile));
 
     }
 
@@ -130,27 +128,25 @@ public class BlobStoreWriter {
         }
 
         // Move temp file to correct location in blob store:
-        String destPath = store.pathForKey(blobKey);
-        File destPathFile = new File(destPath);
-        boolean result = tempFile.renameTo(destPathFile);
+        final String destPath = store.pathForKey(blobKey);
+        final File destPathFile = new File(destPath);
 
         // If the move fails, assume it means a file with the same name already exists; in that
         // case it must have the identical contents, so we're still OK.
-        if (result == false) {
+        if (!tempFile.renameTo(destPathFile)) {
             cancel();
         }
 
         tempFile = null;
-
     }
 
     public String mD5DigestString() {
-        String base64Md5Digest = Base64.encodeBytes(md5DigestResult);
+        final String base64Md5Digest = Base64.encodeBytes(md5DigestResult);
         return String.format("md5-%s", base64Md5Digest);
     }
 
     public String sHA1DigestString() {
-        String base64Sha1Digest = Base64.encodeBytes(blobKey.getBytes());
+        final String base64Sha1Digest = Base64.encodeBytes(blobKey.getBytes());
         return String.format("sha1-%s", base64Sha1Digest);
     }
 

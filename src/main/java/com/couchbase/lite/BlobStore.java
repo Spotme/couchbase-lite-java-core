@@ -17,18 +17,18 @@
 
 package com.couchbase.lite;
 
+import com.couchbase.lite.util.FileEncryptionUtils;
 import com.couchbase.lite.util.Log;
+import com.couchbase.lite.util.StreamUtils;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.RandomAccessFile;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -45,290 +45,274 @@ public class BlobStore {
     public static String TMP_FILE_EXTENSION = ".blobtmp";
     public static String TMP_FILE_PREFIX = "tmp";
 
-    private String path;
+    private final String storeDir;
 
-    public BlobStore(String path) {
-        this.path = path;
-        File directory = new File(path);
+    public BlobStore(final String dir) {
+        storeDir = dir;
 
+        final File directory = new File(storeDir);
         directory.mkdirs();
+
         if (!directory.isDirectory()) {
             throw new IllegalStateException(String.format("Unable to create directory for: %s", directory));
         }
-
     }
 
     public static BlobKey keyForBlob(byte[] data) {
-        MessageDigest md;
         try {
-            md = MessageDigest.getInstance("SHA-1");
+            final MessageDigest md = MessageDigest.getInstance("SHA-1");
+            md.update(data, 0, data.length);
+
+            return new BlobKey(md.digest());
         } catch (NoSuchAlgorithmException e) {
             Log.e(Log.TAG_BLOB_STORE, "Error, SHA-1 digest is unavailable.");
             return null;
         }
-        byte[] sha1hash = new byte[40];
-        md.update(data, 0, data.length);
-        sha1hash = md.digest();
-        BlobKey result = new BlobKey(sha1hash);
-        return result;
     }
 
     public static BlobKey keyForBlobFromFile(File file) {
-        MessageDigest md;
+        InputStream is = null;
+
         try {
-            md = MessageDigest.getInstance("SHA-1");
+            final MessageDigest md = MessageDigest.getInstance("SHA-1");
+
+            byte[] buffer = new byte[1024*4];
+            int len;
+
+            is = FileEncryptionUtils.readFile(file);
+
+            while((len = is.read(buffer)) > 0) {
+                md.update(buffer, 0, len);
+            }
+
+            return new BlobKey(md.digest());
         } catch (NoSuchAlgorithmException e) {
             Log.e(Log.TAG_BLOB_STORE, "Error, SHA-1 digest is unavailable.");
             return null;
-        }
-        byte[] sha1hash = new byte[40];
-
-        try {
-            FileInputStream fis = new FileInputStream(file);
-            byte[] buffer = new byte[65536];
-            int lenRead = fis.read(buffer);
-            while(lenRead > 0) {
-                md.update(buffer, 0, lenRead);
-                lenRead = fis.read(buffer);
-            }
-            fis.close();
         } catch (IOException e) {
             Log.e(Log.TAG_BLOB_STORE, "Error readin tmp file to compute key");
+            return null;
+        } finally {
+            try { is.close(); } catch (Exception e) { /** Ignore **/ }
         }
-
-        sha1hash = md.digest();
-        BlobKey result = new BlobKey(sha1hash);
-        return result;
     }
 
     public String pathForKey(BlobKey key) {
-        return path + File.separator + BlobKey.convertToHex(key.getBytes()) + FILE_EXTENSION;
+        return storeDir + File.separator + BlobKey.convertToHex(key.getBytes()) + FILE_EXTENSION;
     }
 
     public long getSizeOfBlob(BlobKey key) {
-        String path = pathForKey(key);
-        File file = new File(path);
+        final String path = pathForKey(key);
+        final File file = new File(path);
+
         return file.length();
     }
 
     public boolean getKeyForFilename(BlobKey outKey, String filename) {
-        if(!filename.endsWith(FILE_EXTENSION)) {
-            return false;
-        }
-        //trim off extension
-        String rest = filename.substring(path.length() + 1, filename.length() - FILE_EXTENSION.length());
+        if (!filename.endsWith(FILE_EXTENSION)) return false;
 
+        //trim off extension
+        final String rest = filename.substring(storeDir.length() + 1, filename.length() - FILE_EXTENSION.length());
         outKey.setBytes(BlobKey.convertFromHex(rest));
 
         return true;
     }
 
     public byte[] blobForKey(BlobKey key) {
-        String path = pathForKey(key);
-        File file = new File(path);
-        byte[] result = null;
+        final String path = pathForKey(key);
+        final File file = new File(path);
+
         try {
-            result = getBytesFromFile(file);
+            return getBytesFromFile(file);
         } catch (IOException e) {
             Log.e(Log.TAG_BLOB_STORE, "Error reading file", e);
+            return null;
         }
-        return result;
     }
 
     public InputStream blobStreamForKey(BlobKey key) {
-        String path = pathForKey(key);
-        File file = new File(path);
-        if(file.canRead()) {
-            try {
-                return new FileInputStream(file);
-            } catch (FileNotFoundException e) {
-                Log.e(Log.TAG_BLOB_STORE, "Unexpected file not found in blob store", e);
-                return null;
-            }
+        try {
+            final String path = pathForKey(key);
+            final File file = new File(path);
+
+            if (!file.exists()) throw new FileNotFoundException(file.getAbsolutePath());
+            if (!file.canRead()) throw new FileNotFoundException("Cannot read from file");
+
+            return FileEncryptionUtils.readFile(file);
+        } catch (FileNotFoundException f) {
+            Log.e(Log.TAG_BLOB_STORE, "Unexpected file not found in blob store", f);
+            return null;
+        } catch (Exception e) {
+            Log.e(Log.TAG_BLOB_STORE, "Unable to open file", e);
+            return null;
         }
-        return null;
     }
 
     public boolean storeBlobStream(InputStream inputStream, BlobKey outKey) {
-
-        File tmp = null;
         try {
-            tmp = File.createTempFile(TMP_FILE_PREFIX, TMP_FILE_EXTENSION, new File(path));
-            FileOutputStream fos = new FileOutputStream(tmp);
-            byte[] buffer = new byte[65536];
-            int lenRead = inputStream.read(buffer);
-            while(lenRead > 0) {
-                fos.write(buffer, 0, lenRead);
-                lenRead = inputStream.read(buffer);
+            final File tmp = File.createTempFile(TMP_FILE_PREFIX, TMP_FILE_EXTENSION, new File(storeDir));
+            final boolean written = FileEncryptionUtils.streamToFile(inputStream, tmp);
+
+            if (!written) {
+                Log.e(Log.TAG_BLOB_STORE, "Failed to write file");
+                return false;
             }
-            inputStream.close();
-            fos.close();
+
+            final BlobKey newKey = keyForBlobFromFile(tmp);
+            outKey.setBytes(newKey.getBytes());
+
+            final String path = pathForKey(outKey);
+            final File file = new File(path);
+
+            // object with this hash already exists, we should delete tmp file
+            // or does not exist, we should rename tmp file to this name
+            return (file.exists()) ? tmp.delete() : tmp.renameTo(file);
         } catch (IOException e) {
             Log.e(Log.TAG_BLOB_STORE, "Error writing blog to tmp file", e);
             return false;
+        } catch (Exception ex) {
+            Log.e(Log.TAG_BLOB_STORE, "Error encrypting tmp file", ex);
+            return false;
         }
-
-        BlobKey newKey = keyForBlobFromFile(tmp);
-        outKey.setBytes(newKey.getBytes());
-        String path = pathForKey(outKey);
-        File file = new File(path);
-
-        if(file.canRead()) {
-            // object with this hash already exists, we should delete tmp file and return true
-            tmp.delete();
-            return true;
-        } else {
-            // does not exist, we should rename tmp file to this name
-            tmp.renameTo(file);
-        }
-        return true;
     }
 
     public boolean storeBlob(byte[] data, BlobKey outKey) {
-        BlobKey newKey = keyForBlob(data);
+        final BlobKey newKey = keyForBlob(data);
         outKey.setBytes(newKey.getBytes());
-        String path = pathForKey(outKey);
-        File file = new File(path);
-        if(file.canRead()) {
-            return true;
-        }
 
-        FileOutputStream fos = null;
+        final String path = pathForKey(outKey);
+        final File file = new File(path);
+
+        if (file.canRead()) return true; // file exists
+
         try {
-            fos = new FileOutputStream(file);
-            fos.write(data);
+            if (!FileEncryptionUtils.streamToFile(new ByteArrayInputStream(data), file)) {
+                throw new FileNotFoundException("Unable to write to file: " + file.getAbsolutePath());
+            }
         } catch (FileNotFoundException e) {
             Log.e(Log.TAG_BLOB_STORE, "Error opening file for output", e);
             return false;
         } catch(IOException ioe) {
             Log.e(Log.TAG_BLOB_STORE, "Error writing to file", ioe);
             return false;
-        } finally {
-            if(fos != null) {
-                try {
-                    fos.close();
-                } catch (IOException e) {
-                    // ignore
-                }
-            }
         }
 
         return true;
     }
 
     private static byte[] getBytesFromFile(File file) throws IOException {
-        InputStream is = new FileInputStream(file);
+        InputStream in = null;
 
-        // Get the size of the file
-        long length = file.length();
+        try {
+            in = FileEncryptionUtils.readFile(file);
 
-        // Create the byte array to hold the data
-        byte[] bytes = new byte[(int)length];
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            StreamUtils.copyStream(in, out);
 
-        // Read in the bytes
-        int offset = 0;
-        int numRead = 0;
-        while (offset < bytes.length
-               && (numRead=is.read(bytes, offset, bytes.length-offset)) >= 0) {
-            offset += numRead;
+            return out.toByteArray();
+        } catch (IOException io) {
+            throw new IOException(io);
+        } finally {
+            try { in.close(); } catch (Exception e) { /** Ignore **/ }
         }
-
-        // Ensure all the bytes have been read in
-        if (offset < bytes.length) {
-            throw new IOException("Could not completely read file "+file.getName());
-        }
-
-        // Close the input stream and return bytes
-        is.close();
-        return bytes;
     }
 
     public Set<BlobKey> allKeys() {
-        Set<BlobKey> result = new HashSet<BlobKey>();
-        File file = new File(path);
-        File[] contents = file.listFiles();
-        for (File attachment : contents) {
-            if (attachment.isDirectory()) {
-                continue;
-            }
-            BlobKey attachmentKey = new BlobKey();
+        final Set<BlobKey> result = new HashSet<BlobKey>();
+        final File file = new File(storeDir);
+        final File[] contents = file.listFiles();
+
+        for (final File attachment : contents) {
+            if (attachment.isDirectory()) continue;
+
+            final BlobKey attachmentKey = new BlobKey();
+
             getKeyForFilename(attachmentKey, attachment.getPath());
             result.add(attachmentKey);
         }
+
         return result;
     }
 
     public int count() {
-        File file = new File(path);
-        File[] contents = file.listFiles();
+        final File file = new File(storeDir);
+        final File[] contents = file.listFiles();
+
         return contents.length;
     }
 
     public long totalDataSize() {
         long total = 0;
-        File file = new File(path);
-        File[] contents = file.listFiles();
-        for (File attachment : contents) {
+
+        final File file = new File(storeDir);
+        final File[] contents = file.listFiles();
+
+        for (final File attachment : contents) {
             total += attachment.length();
         }
+
         return total;
     }
 
-    public int deleteBlobsExceptWithKeys(List<BlobKey> keysToKeep) {
+    public int deleteBlobsExceptWithKeys(final List<BlobKey> keysToKeep) {
         int numDeleted = 0;
-        File file = new File(path);
-        File[] contents = file.listFiles();
-        for (File attachment : contents) {
-            BlobKey attachmentKey = new BlobKey();
+
+        final File file = new File(storeDir);
+        final File[] contents = file.listFiles();
+
+        for (final File attachment : contents) {
+            final BlobKey attachmentKey = new BlobKey();
             getKeyForFilename(attachmentKey, attachment.getPath());
-            if(!keysToKeep.contains(attachmentKey)) {
-                boolean result = attachment.delete();
-                if(result) {
+
+            if (keysToKeep != null && !keysToKeep.contains(attachmentKey)) {
+                if (attachment.delete()) {
                     ++numDeleted;
-                }
-                else {
+                } else {
                     Log.e(Log.TAG_BLOB_STORE, "Error deleting attachment: %s", attachment);
                 }
             }
         }
+
         return numDeleted;
     }
 
     public int deleteBlobs() {
-        return deleteBlobsExceptWithKeys(new ArrayList<BlobKey>());
+        return deleteBlobsExceptWithKeys(null);
     }
     
-    public boolean isGZipped(BlobKey key) {
+    public boolean isGZipped(final BlobKey key) {
         int magic = 0;
-        String path = pathForKey(key);
-        File file = new File(path);
+
+        final String path = pathForKey(key);
+        final File file = new File(path);
+
         if (file.canRead()) {
+            InputStream raf = null;
+
             try {
-                RandomAccessFile raf = new RandomAccessFile(file, "r");
+                raf = FileEncryptionUtils.readFile(file);
+
                 magic = raf.read() & 0xff | ((raf.read() << 8) & 0xff00);
-                raf.close();
             } catch (Throwable e) {
                 e.printStackTrace(System.err);
+            } finally {
+                try { raf.close(); } catch (Exception e) { /** Ignore **/ }
             }
         }
+
         return magic == GZIPInputStream.GZIP_MAGIC;
     }
 
     public File tempDir() {
-
-        File directory = new File(path);
-        File tempDirectory = new File(directory, "temp_attachments");
+        final File directory = new File(storeDir);
+        final File tempDirectory = new File(directory, "temp_attachments");
 
         tempDirectory.mkdirs();
+
         if (!tempDirectory.isDirectory()) {
             throw new IllegalStateException(String.format("Unable to create directory for: %s", tempDirectory));
         }
 
         return tempDirectory;
-
-
-
-
     }
-
 }
