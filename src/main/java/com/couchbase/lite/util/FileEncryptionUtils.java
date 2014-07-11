@@ -10,41 +10,56 @@ import java.io.OutputStream;
 
 import javax.crypto.Cipher;
 import javax.crypto.CipherOutputStream;
-import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 
 public class FileEncryptionUtils {
 
-    private static Cipher mCipher;
-    private static SecretKey mKey;
-    private static IvParameterSpec mIv;
+    private static Cipher mECipher;
+    private static Cipher mDCipher;
 
-    private static Cipher getCipher() {
-        if (mCipher == null) {
+    private static SecretKeySpec mKey;
+
+    private static IvParameterSpec mIV;
+
+    private static Cipher getEncryptionCipher() {
+        if (mECipher == null) {
             try {
-                mCipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+                mECipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+                mECipher.init(Cipher.ENCRYPT_MODE, mKey, mIV);
             } catch (Exception e) {
                 // ..
             }
         }
 
-        return mCipher;
+        return mECipher;
     }
 
-    public static void setKey(final SecretKey key, final IvParameterSpec iv) {
+    private static Cipher getDecryptionCypher() {
+        if (mDCipher == null) {
+            try {
+                mDCipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+                mDCipher.init(Cipher.DECRYPT_MODE, mKey, mIV);
+            } catch (Exception e) {
+                // ..
+            }
+        }
+
+        return mDCipher;
+    }
+
+    public static void setKey(final SecretKeySpec key, final IvParameterSpec iv) {
         mKey = key;
-        mIv = iv;
+        mIV = iv;
     }
 
     public static InputStream readFile(final File file) {
         FileInputStream fs = null;
 
         try {
-            getCipher().init(Cipher.DECRYPT_MODE, mKey);
-
             fs = new FileInputStream(file);
 
-//            return new CipherInputStream(fs, getCipher());
+//            return new CipherInputStream(fs, getDecryptionCypher());
             return fs;
         } catch (Exception e) {
             Log.e(Database.TAG, "FileEncryptionUtils failed to write to a file", e);
@@ -58,11 +73,9 @@ public class FileEncryptionUtils {
         FileOutputStream fs = null;
 
         try {
-            getCipher().init(Cipher.ENCRYPT_MODE, mKey);
-
             fs = new FileOutputStream(file);
 
-//            return new CipherOutputStream(fs, getCipher());
+//            return new CipherOutputStream(fs, getEncryptionCipher());
             return fs;
         } catch (Exception e) {
             Log.e(Database.TAG, "FileEncryptionUtils failed to write to a file", e);
@@ -76,14 +89,12 @@ public class FileEncryptionUtils {
         OutputStream out = null;
 
         try {
-            getCipher().init(Cipher.ENCRYPT_MODE, mKey);
-
             final OutputStream fs = new FileOutputStream(file);
 
-            out = new CipherOutputStream(fs, getCipher());
+            out = new CipherOutputStream(fs, getEncryptionCipher());
 
-//            StreamUtils.copyStream(in, out);
             StreamUtils.copyStream(in, fs);
+//            StreamUtils.copyStream(in, out);
 
             return true;
         } catch (Exception e) {

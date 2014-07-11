@@ -37,7 +37,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
@@ -73,6 +72,8 @@ public final class Manager {
 
     public static final String VERSION = Version.VERSION;
 
+    private static final String IV_SEED = "71jdo28hds91pdmd";
+
     private static final ObjectMapper mapper = new ObjectMapper();
     private ManagerOptions options;
     private File directoryFile;
@@ -82,7 +83,7 @@ public final class Manager {
     private HttpClientFactory defaultHttpClientFactory;
     private Context context;
     private IvParameterSpec encryptionIv;
-    private SecretKey encryptionKey;
+    private SecretKeySpec encryptionKey;
 
     /**
      * @exclude
@@ -137,8 +138,8 @@ public final class Manager {
 
         if (options.getDatabasePassword() != null) {
             try {
-                this.encryptionIv = new IvParameterSpec(options.getDatabasePassword().getBytes());
-                this.encryptionKey = new SecretKeySpec(options.getDatabasePassword().getBytes(), "AES");
+                this.encryptionIv = new IvParameterSpec(IV_SEED.getBytes("UTF-8"));
+                this.encryptionKey = new SecretKeySpec(options.getDatabasePassword().getBytes("UTF-8"), "AES");
 
                 FileEncryptionUtils.setKey(encryptionKey, encryptionIv);
             } catch (Exception e) {
