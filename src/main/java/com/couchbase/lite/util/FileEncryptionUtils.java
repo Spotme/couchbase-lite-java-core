@@ -9,6 +9,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 import javax.crypto.Cipher;
+import javax.crypto.CipherInputStream;
 import javax.crypto.CipherOutputStream;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
@@ -38,8 +39,12 @@ public class FileEncryptionUtils {
     private static Cipher getDecryptionCypher() {
         if (mDCipher == null) {
             try {
+                if (mECipher == null) getEncryptionCipher();
+
+                byte[] iv = mECipher.getParameters().getParameterSpec(IvParameterSpec.class).getIV();
+
                 mDCipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
-                mDCipher.init(Cipher.DECRYPT_MODE, mKey, mIV);
+                mDCipher.init(Cipher.DECRYPT_MODE, mKey, new IvParameterSpec(iv));
             } catch (Exception e) {
                 // ..
             }
@@ -59,8 +64,8 @@ public class FileEncryptionUtils {
         try {
             fs = new FileInputStream(file);
 
-//            return new CipherInputStream(fs, getDecryptionCypher());
-            return fs;
+            return new CipherInputStream(fs, getDecryptionCypher());
+//            return fs;
         } catch (Exception e) {
             Log.e(Database.TAG, "FileEncryptionUtils failed to write to a file", e);
             return null;
@@ -75,8 +80,8 @@ public class FileEncryptionUtils {
         try {
             fs = new FileOutputStream(file);
 
-//            return new CipherOutputStream(fs, getEncryptionCipher());
-            return fs;
+            return new CipherOutputStream(fs, getEncryptionCipher());
+//            return fs;
         } catch (Exception e) {
             Log.e(Database.TAG, "FileEncryptionUtils failed to write to a file", e);
             return null;
@@ -93,8 +98,8 @@ public class FileEncryptionUtils {
 
             out = new CipherOutputStream(fs, getEncryptionCipher());
 
-            StreamUtils.copyStream(in, fs);
-//            StreamUtils.copyStream(in, out);
+//            StreamUtils.copyStream(in, fs);
+            StreamUtils.copyStream(in, out);
 
             return true;
         } catch (Exception e) {

@@ -24,6 +24,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.security.spec.KeySpec;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -37,7 +38,10 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
@@ -138,8 +142,15 @@ public final class Manager {
 
         if (options.getDatabasePassword() != null) {
             try {
+                final SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
+
+                final char[] pwd = options.getDatabasePassword().toCharArray();
+                final KeySpec spec = new PBEKeySpec(pwd, IV_SEED.getBytes("UTF-8"), 65536, 256);
+
+                final SecretKey tmp = factory.generateSecret(spec);
+
                 this.encryptionIv = new IvParameterSpec(IV_SEED.getBytes("UTF-8"));
-                this.encryptionKey = new SecretKeySpec(options.getDatabasePassword().getBytes("UTF-8"), "AES");
+                this.encryptionKey = new SecretKeySpec(tmp.getEncoded(), "AES");
 
                 FileEncryptionUtils.setKey(encryptionKey, encryptionIv);
             } catch (Exception e) {
