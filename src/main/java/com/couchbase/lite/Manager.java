@@ -24,7 +24,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.security.spec.KeySpec;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -37,12 +36,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import javax.crypto.SecretKey;
-import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.IvParameterSpec;
-import javax.crypto.spec.PBEKeySpec;
-import javax.crypto.spec.SecretKeySpec;
 
 /**
  * Top-level CouchbaseLite object; manages a collection of databases as a CouchDB server does.
@@ -86,8 +79,6 @@ public final class Manager {
     private ScheduledExecutorService workExecutor;
     private HttpClientFactory defaultHttpClientFactory;
     private Context context;
-    private IvParameterSpec encryptionIv;
-    private SecretKeySpec encryptionKey;
 
     /**
      * @exclude
@@ -141,21 +132,7 @@ public final class Manager {
         this.replications = new ArrayList<Replication>();
 
         if (options.getDatabasePassword() != null) {
-            try {
-                final SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
-
-                final char[] pwd = options.getDatabasePassword().toCharArray();
-                final KeySpec spec = new PBEKeySpec(pwd, IV_SEED.getBytes("UTF-8"), 65536, 256);
-
-                final SecretKey tmp = factory.generateSecret(spec);
-
-                this.encryptionIv = new IvParameterSpec(IV_SEED.getBytes("UTF-8"));
-                this.encryptionKey = new SecretKeySpec(tmp.getEncoded(), "AES");
-
-                FileEncryptionUtils.setKey(encryptionKey, encryptionIv);
-            } catch (Exception e) {
-                // ...
-            }
+            FileEncryptionUtils.setKey(options.getDatabasePassword());
         }
 
         directoryFile.mkdirs();

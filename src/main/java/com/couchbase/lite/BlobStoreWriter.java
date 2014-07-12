@@ -4,11 +4,11 @@ import com.couchbase.lite.support.Base64;
 import com.couchbase.lite.util.FileEncryptionUtils;
 import com.couchbase.lite.util.Log;
 
-import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
@@ -34,7 +34,7 @@ public class BlobStoreWriter {
     private MessageDigest sha1Digest;
     private MessageDigest md5Digest;
 
-    private BufferedOutputStream outStream;
+    private OutputStream outStream;
     private File tempFile;
 
     public BlobStoreWriter(BlobStore store) {
@@ -61,7 +61,7 @@ public class BlobStoreWriter {
         final File tempDir = store.tempDir();
 
         tempFile = new File(tempDir, filename);
-        outStream = new BufferedOutputStream(FileEncryptionUtils.writeFile(tempFile));
+        outStream = FileEncryptionUtils.writeFile(tempFile);
 
     }
 
