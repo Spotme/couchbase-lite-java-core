@@ -30,8 +30,10 @@ public class SQLiteStorageEngineFactory {
         String classname = "";
         String resource = "services/com.couchbase.lite.storage.SQLiteStorageEngine";
 
+        InputStream inputStream = null;
+
         try {
-            InputStream inputStream = Thread.currentThread().getContextClassLoader().getResourceAsStream(resource);
+            inputStream = Thread.currentThread().getContextClassLoader().getResourceAsStream(resource);
             byte[] bytes = TextUtils.read(inputStream);
             classname = new String(bytes);
             Log.d(Database.TAG, "Loading storage engine: %s", classname);
@@ -40,6 +42,8 @@ public class SQLiteStorageEngineFactory {
             return storageEngine;
         } catch (Exception e) {
             throw new RuntimeException("Failed to load storage.  Resource: " + resource + " classname: " + classname, e);
+        } finally {
+            try { inputStream.close(); } catch (Exception e) { /** Ignore **/ }
         }
 
     }

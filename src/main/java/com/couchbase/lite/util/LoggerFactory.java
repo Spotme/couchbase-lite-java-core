@@ -27,8 +27,10 @@ public class LoggerFactory {
         String classname = "";
         String resource = "services/com.couchbase.lite.util.Logger";
 
+        InputStream inputStream = null;
+
         try {
-            InputStream inputStream = Thread.currentThread().getContextClassLoader().getResourceAsStream(resource);
+            inputStream = Thread.currentThread().getContextClassLoader().getResourceAsStream(resource);
             if (inputStream == null) {
                 // Return default System logger.
                 Log.d(Database.TAG, "Unable to load %s. Falling back to SystemLogger", resource);
@@ -47,6 +49,8 @@ public class LoggerFactory {
             return logger;
         } catch (Exception e) {
             throw new RuntimeException("Failed to logger.  Resource: " + resource + " classname: " + classname, e);
+        } finally {
+            try { inputStream.close(); } catch (Exception e) { /** Ignore **/ }
         }
 
 
