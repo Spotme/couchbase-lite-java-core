@@ -1608,7 +1608,7 @@ public class Router implements Database.ChangeListener {
             throw new CouchbaseLiteException(Status.BAD_ATTACHMENT);
         }
 
-        RevisionInternal rev = db.updateAttachment(attachment, body, connection.getRequestProperty("content-type"), AttachmentInternal.AttachmentEncoding.AttachmentEncodingNone,
+        RevisionInternal rev = db.updateAttachment(attachment, body, connection.getRequestProperty("Content-Type"), AttachmentInternal.AttachmentEncoding.AttachmentEncodingNone,
                 docID, revID);
         Map<String, Object> resultDict = new HashMap<String, Object>();
         resultDict.put("ok", true);
