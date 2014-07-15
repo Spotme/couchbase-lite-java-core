@@ -1431,7 +1431,7 @@ public class Router implements Database.ChangeListener {
             }
 
             String type = null;
-            String acceptEncoding = connection.getRequestProperty("accept-encoding");
+            String acceptEncoding = connection.getRequestProperty("Accept-Encoding");
             Attachment contents = db.getAttachmentForSequence(rev.getSequence(), _attachmentName);
 
             if (contents == null) {
