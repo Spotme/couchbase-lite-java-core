@@ -4160,6 +4160,7 @@ public final class Database {
             else {
                 result = result + "','";
             }
+            if (string == null) continue;
             result = result + quote(string);
         }
         result = result + "'";
