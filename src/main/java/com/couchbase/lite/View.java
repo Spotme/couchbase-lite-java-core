@@ -940,6 +940,15 @@ public final class View {
 
                                 if (linkedDoc == null) throw new NullPointerException("linkedDoc is null");
                                 else docContents = linkedDoc.getProperties();
+                            } else {
+                                docContents = database.documentPropertiesFromJSON(
+                                    cursor.getBlob(5),
+                                    docId,
+                                    cursor.getString(4),
+                                    false,
+                                    cursor.getLong(3),
+                                    options.getContentOptions()
+                                );    
                             }
                         } catch (Exception e) {
                             docContents = database.documentPropertiesFromJSON(
