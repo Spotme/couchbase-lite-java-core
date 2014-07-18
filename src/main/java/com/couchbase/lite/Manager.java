@@ -69,8 +69,6 @@ public final class Manager {
 
     public static final String VERSION = Version.VERSION;
 
-    private static final String IV_SEED = "71jdo28hds91pdmd";
-
     private static final ObjectMapper mapper = new ObjectMapper();
     private ManagerOptions options;
     private File directoryFile;
