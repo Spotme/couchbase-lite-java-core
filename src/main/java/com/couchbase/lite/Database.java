@@ -63,6 +63,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.zip.GZIPInputStream;
 
 /**
  * A CouchbaseLite database.
@@ -2564,14 +2565,18 @@ public final class Database {
                 throw new CouchbaseLiteException(Status.INTERNAL_SERVER_ERROR);
             }
             else {
-                Attachment result = new Attachment(contentStream, cursor.getString(1));
-                result.setGZipped(attachments.isGZipped(key));
+				final Attachment result;
+				if (attachments.isGZipped(key)) result = new Attachment(new GZIPInputStream(contentStream), cursor.getString(1));
+				else result = new Attachment(contentStream, cursor.getString(1));
+                result.setGZipped(false);
                 return result;
             }
 
         } catch (SQLException e) {
             throw new CouchbaseLiteException(Status.INTERNAL_SERVER_ERROR);
-        } finally {
+        } catch (IOException e) {
+			throw new CouchbaseLiteException(Status.INTERNAL_SERVER_ERROR);
+		} finally {
             if(cursor != null) {
                 cursor.close();
             }
