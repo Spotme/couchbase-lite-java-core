@@ -16,13 +16,15 @@
 
 package com.couchbase.lite.storage;
 
+import com.couchbase.lite.Context;
+
 public interface SQLiteStorageEngine {
     public static final int CONFLICT_NONE = 0;
     public static final int CONFLICT_IGNORE = 4;
     public static final int CONFLICT_REPLACE = 5;
 
-    boolean open(String path);
-    boolean open(String path, String password);
+    boolean open(String path, Context ctx);
+    boolean open(String path, Context ctx, String password);
     int getVersion();
     void setVersion(int version);
     boolean isOpen();

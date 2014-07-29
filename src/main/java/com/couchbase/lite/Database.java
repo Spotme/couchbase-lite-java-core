@@ -921,7 +921,7 @@ public final class Database {
         database = SQLiteStorageEngineFactory.createStorageEngine();
 
         // Try to open the storage engine and stop if we fail.
-        if (database == null || !database.open(path, password)) {
+        if (database == null || !database.open(path, manager.getContext(), password)) {
             String msg = "Unable to create a storage engine, fatal error";
             Log.e(Database.TAG, msg);
             throw new IllegalStateException(msg);

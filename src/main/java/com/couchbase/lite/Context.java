@@ -35,5 +35,8 @@ public interface Context {
      */
     public NetworkReachabilityManager getNetworkReachabilityManager();
 
-
+	/**
+	 * The directory where to load shared libraries from. This may be empty.
+	 */
+	public String getLibraryDir(String libName);
 }
