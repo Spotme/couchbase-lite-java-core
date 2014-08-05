@@ -143,9 +143,7 @@ public class ChangeTracker implements Runnable {
 
         String path = "_changes?feed=";
         path += getFeed();
-        if (mode == ChangeTrackerMode.LongPoll) {
-            path += String.format("&limit=%s", limit);
-        }
+
         path += String.format("&heartbeat=%s", getHeartbeatMilliseconds());
 
         if (includeConflicts) {
@@ -507,12 +505,6 @@ public class ChangeTracker implements Runnable {
             } catch (NumberFormatException e) {
                 post.put("since", lastSequenceID.toString());
             }
-        }
-
-        if (mode == ChangeTrackerMode.LongPoll && limit > 0) {
-            post.put("limit", limit);
-        } else {
-            post.put("limit", null);
         }
 
         if (filterName != null) {
