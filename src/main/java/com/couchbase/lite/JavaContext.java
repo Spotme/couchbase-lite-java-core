@@ -19,16 +19,6 @@ public class JavaContext implements Context {
         return new File(getRootDirectory(), subdir);
     }
 
-    @Override
-    public void setNetworkReachabilityManager(NetworkReachabilityManager networkReachabilityManager) {
-
-    }
-
-    @Override
-    public NetworkReachabilityManager getNetworkReachabilityManager() {
-        return new FakeNetworkReachabilityManager();
-    }
-
 	@Override
 	public String getLibraryDir(String libName) {
 		return System.getProperty("java.library.path");
@@ -40,18 +30,6 @@ public class JavaContext implements Context {
         rootDirectory = new File(rootDirectory, "data/data/com.couchbase.lite.test/files");
 
         return rootDirectory;
-    }
-
-    class FakeNetworkReachabilityManager extends NetworkReachabilityManager {
-        @Override
-        public void startListening() {
-
-        }
-
-        @Override
-        public void stopListening() {
-
-        }
     }
 
 }

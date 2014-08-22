@@ -853,21 +853,6 @@ public final class Puller extends Replication implements ChangeTrackerClient {
         }
         return URLEncoder.encode(new String(json));
     }
-
-
-    @InterfaceAudience.Public
-    public boolean goOffline() {
-        Log.d(Log.TAG_SYNC, "%s: goOffline() called, stopping changeTracker: %s", this, changeTracker);
-        if (!super.goOffline()) {
-            return false;
-        }
-
-        if (changeTracker != null) {
-            changeTracker.stop();
-        }
-
-        return true;
-    }
 }
 
 /**

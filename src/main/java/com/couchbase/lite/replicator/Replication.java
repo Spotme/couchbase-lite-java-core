@@ -5,7 +5,6 @@ import com.couchbase.lite.CouchbaseLiteException;
 import com.couchbase.lite.Database;
 import com.couchbase.lite.Manager;
 import com.couchbase.lite.Misc;
-import com.couchbase.lite.NetworkReachabilityListener;
 import com.couchbase.lite.RevisionList;
 import com.couchbase.lite.Status;
 import com.couchbase.lite.auth.Authenticator;
@@ -60,7 +59,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * A Couchbase Lite pull or push Replication between a local and a remote Database.
  */
-public abstract class Replication implements NetworkReachabilityListener {
+public abstract class Replication {
 
     private static int lastSessionID = 0;
 
@@ -504,8 +503,6 @@ public abstract class Replication implements NetworkReachabilityListener {
 
         checkSession();
 
-        db.getManager().getContext().getNetworkReachabilityManager().addNetworkReachabilityListener(this);
-
     }
 
     /**
@@ -845,10 +842,6 @@ public abstract class Replication implements NetworkReachabilityListener {
         saveLastSequence();
 
         batcher = null;
-
-        if (db != null) {
-            db.getManager().getContext().getNetworkReachabilityManager().removeNetworkReachabilityListener(this);
-        }
 
         clearDbRef();  // db no longer tracks me so it won't notify me when it closes; clear ref now
 
@@ -1231,55 +1224,6 @@ public abstract class Replication implements NetworkReachabilityListener {
         db.setLastSequence(lastSequence, remoteCheckpointDocID, !isPull());
     }
 
-    @InterfaceAudience.Public
-    public boolean goOffline() {
-        if (!online) {
-            return false;
-        }
-        if (db == null) {
-            return false;
-        }
-        db.runAsync(new AsyncTask() {
-            @Override
-            public void run(Database database) {
-                Log.d(Log.TAG_SYNC, "%s: Going offline", this);
-                online = false;
-                stopRemoteRequests();
-                updateProgress();
-                notifyChangeListeners();
-            }
-        });
-        return true;
-    }
-
-    @InterfaceAudience.Public
-    public boolean goOnline() {
-        if (online) {
-            return false;
-        }
-        if (db == null) {
-            return false;
-        }
-        db.runAsync(new AsyncTask() {
-            @Override
-            public void run(Database database) {
-                Log.d(Log.TAG_SYNC, "%s: Going online", this);
-                online = true;
-
-                if (running) {
-                    lastSequence = null;
-                    setError(null);
-                }
-
-                remoteRequestExecutor = Executors.newCachedThreadPool();
-                checkSession();
-                notifyChangeListeners();
-            }
-        });
-
-        return true;
-    }
-
     @InterfaceAudience.Private
     private void stopRemoteRequests() {
         Log.v(Log.TAG_SYNC, "%s: stopRemoteRequests() cancelling: %d requests", this, requests.size());
@@ -1451,18 +1395,6 @@ public abstract class Replication implements NetworkReachabilityListener {
         return new Status(Status.OK);
 
 
-    }
-
-    @Override
-    @InterfaceAudience.Private
-    public void networkReachable() {
-        goOnline();
-    }
-
-    @Override
-    @InterfaceAudience.Private
-    public void networkUnreachable() {
-        goOffline();
     }
 
     @InterfaceAudience.Private

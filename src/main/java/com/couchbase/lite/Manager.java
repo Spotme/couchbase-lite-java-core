@@ -217,7 +217,6 @@ public final class Manager {
             database.close();
         }
         databases.clear();
-        context.getNetworkReachabilityManager().stopListening();
         Log.i(Database.TAG, "Closed " + this);
     }
 
