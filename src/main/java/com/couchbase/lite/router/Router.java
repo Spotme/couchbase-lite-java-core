@@ -700,6 +700,9 @@ public class Router implements Database.ChangeListener {
                     activity.put("target", target);
                     activity.put("status", status);
                     activity.put("progress", progress);
+                    activity.put("replication_id", replicator.getReplicationID());
+                    activity.put("checkpoint_id", replicator.remoteCheckpointDocID());
+
 
                     if (replicator.getLastError() != null) {
                         String msg = String.format("Replicator error: %s.  Repl: %s.  Source: %s, Target: %s",
