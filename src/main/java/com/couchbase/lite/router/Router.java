@@ -298,7 +298,8 @@ public class Router implements Database.ChangeListener {
         // We're going to map the request into a method call using reflection based on the method and path.
         // Accumulate the method name into the string 'message':
         String method = connection.getRequestMethod();
-        if("HEAD".equals(method)) {
+	    boolean isHeadRequest = "HEAD".equals(method);
+	    if(isHeadRequest) {
             method = "GET";
         }
         String message = String.format("do_%s", method);
@@ -523,7 +524,7 @@ public class Router implements Database.ChangeListener {
             connection.setResponseBody(new Body("{\"ok\":true}".getBytes()));
         }
 
-        if (status.isSuccessful() == false && connection.getResponseBody() == null) {
+        if (!status.isSuccessful() && connection.getResponseBody() == null && !isHeadRequest) {
             Map<String, Object> result = new HashMap<String, Object>();
             result.put("status", status.getCode());
             connection.setResponseBody(new Body(result));
