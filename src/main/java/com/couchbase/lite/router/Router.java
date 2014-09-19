@@ -452,7 +452,7 @@ public class Router implements Database.ChangeListener {
 					    docID = docID + "/" + functionName;
 				    } else if (action.equalsIgnoreCase("_show")) { // show function
 					    message = message.replaceFirst("_DesignDocument", "_ShowFunction");
-					    attachmentName = path.get(3);
+					    attachmentName = path.get(4);
 					    docID = docID + "/" + functionName;
 				    }
 			    } else {
@@ -1818,9 +1818,9 @@ public class Router implements Database.ChangeListener {
 		return new Status(Status.OK);
 	}
 
-	public Status do_GET_ShowFunction(Database db, String designDocID, String showName) throws CouchbaseLiteException {
+	public Status do_GET_ShowFunction(Database db, String designDocIDAndShowName, String docID) throws CouchbaseLiteException {
 		// designDocID is "designDoc/functionName
-		final List<String> path = Arrays.asList(designDocID.split("/"));
+		final List<String> path = Arrays.asList(designDocIDAndShowName.split("/"));
 
 		final RevisionInternal rev = db.getDocumentWithIDAndRev(String.format("_design/%s", path.get(0)), null, EnumSet.noneOf(TDContentOptions.class));
 		final Map<String, Object> designDoc = rev.getProperties();
@@ -1830,15 +1830,19 @@ public class Router implements Database.ChangeListener {
 		compiler.setRequestObject(connection);
 		compiler.setDesignDocument(designDoc);
 
-		final Map<String, Object> document;
+		Map<String, Object> document = new HashMap<String, Object>();
 
-		if (path.size() > 2) { // we have to get a doc
-			document = db.getDocumentWithIDAndRev(path.get(2), null, EnumSet.noneOf(TDContentOptions.class)).getProperties();
-		} else {
-			document = new HashMap<String, Object>();
+		if (docID != null) { // we have to get a doc
+			try {
+				final RevisionInternal revisionInternal = db.getDocumentWithIDAndRev(docID, null, EnumSet.noneOf(TDContentOptions.class));
+				if (revisionInternal != null) document = revisionInternal.getProperties();
+			} catch (Exception e) {
+				Log.w("Unable to get the document: " + docID, e);
+			}
 		}
 
-		final String showResult = compiler.show(showName, document);
+		final String showResult = compiler.show(path.get(1), document);
+
 
 		connection.setResponseBody(Body.bodyWithJSON(showResult.getBytes()));
 
