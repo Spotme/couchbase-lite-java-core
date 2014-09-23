@@ -3385,6 +3385,23 @@ public final class Database {
     @InterfaceAudience.Private
     public void notifyChange(RevisionInternal rev, RevisionInternal winningRev, URL source, boolean inConflict) {
 
+	    String docId = rev.getDocId();
+
+
+	    // Is this a design doc? If yes, clear it's views
+	    if (docId != null && docId.startsWith("_design/")) {
+		    try {
+			    final String docName = docId.replace("_design/", "");
+			    final Map<String, Object> views = (Map<String, Object>) rev.getPropertyForKey("views");
+
+			    for (final String viewName : views.keySet()) {
+				    deleteViewNamed(String.format("%s/%s", docName, viewName));
+			    }
+		    } catch (Exception e) {
+			    Log.e(Database.TAG, "Unable to delete named view!");
+		    }
+	    }
+
         DocumentChange change = new DocumentChange(
                 rev,
                 winningRev,
@@ -3628,20 +3645,6 @@ public final class Database {
 
             // Figure out what the new winning rev ID is:
             winningRev = winner(docNumericID, oldWinningRevID, oldWinnerWasDeletion.get(), newRev);
-
-	        // Is this a design doc? If yes, clear it's views
-	        if (docId != null && docId.startsWith("_design/")) {
-		        try {
-			        final String docName = docId.replace("_design/", "");
-			        final Map<String, Object> views = (Map<String, Object>) oldRev.getPropertyForKey("views");
-
-			        for (final String viewName : views.keySet()) {
-				        deleteViewNamed(String.format("%s/%s", docName, viewName));
-			        }
-		        } catch (Exception e) {
-			        Log.e(Database.TAG, "Unable to delete named view!");
-		        }
-	        }
 
             // Success!
             if(deleted) {
