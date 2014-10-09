@@ -452,7 +452,12 @@ public class Router implements Database.ChangeListener {
 					    docID = docID + "/" + functionName;
 				    } else if (action.equalsIgnoreCase("_show")) { // show function
 					    message = message.replaceFirst("_DesignDocument", "_ShowFunction");
-					    attachmentName = path.get(3);
+					    final int numOfShowRequestPartsWithDocName = 5;
+					    if (path.size() >= numOfShowRequestPartsWithDocName) {
+						    attachmentName = path.get(4);
+					    } else {
+						    attachmentName = null;
+					    }
 					    docID = docID + "/" + functionName;
 				    }
 			    } else {
