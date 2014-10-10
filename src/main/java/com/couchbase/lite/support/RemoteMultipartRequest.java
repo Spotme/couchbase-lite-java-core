@@ -45,6 +45,7 @@ public class RemoteMultipartRequest extends RemoteRequest {
         }
 
         request.addHeader("Accept", "*/*");
+	    addRequestHeaders(request);
 
         executeRequest(httpClient, request);
 
