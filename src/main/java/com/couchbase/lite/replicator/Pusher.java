@@ -19,10 +19,9 @@ import com.couchbase.lite.util.URIUtils;
 
 import org.apache.http.client.HttpResponseException;
 import org.apache.http.entity.mime.MultipartEntity;
-import org.apache.http.entity.mime.content.FileBody;
+import org.apache.http.entity.mime.content.ByteArrayBody;
 import org.apache.http.entity.mime.content.StringBody;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.Charset;
@@ -505,9 +504,9 @@ public final class Pusher extends Replication implements Database.ChangeListener
                 BlobStore blobStore = this.db.getAttachments();
                 String base64Digest = (String) attachment.get("digest");
                 BlobKey blobKey = new BlobKey(base64Digest);
-                String path = blobStore.pathForKey(blobKey);
-                File file = new File(path);
-                if (!file.exists()) {
+
+	            byte[] attachmentBytes = blobStore.blobForKey(blobKey);
+	            if (attachmentBytes == null) {
                     Log.w(Log.TAG_SYNC, "Unable to find blob file for blobKey: %s - Skipping upload of multipart revision.", blobKey);
                     multiPart = null;
                 }
@@ -521,9 +520,9 @@ public final class Pusher extends Replication implements Database.ChangeListener
                                 " field name instead of content_type (see couchbase-lite-android" +
                                 " issue #80): %s", attachment);
                     }
+		            ByteArrayBody byteArrayBody = new ByteArrayBody(attachmentBytes, attachmentKey);
 
-                    FileBody fileBody = new FileBody(file, contentType);
-                    multiPart.addPart(attachmentKey, fileBody);
+                    multiPart.addPart(attachmentKey, byteArrayBody);
                 }
 
             }
