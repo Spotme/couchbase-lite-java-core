@@ -84,8 +84,11 @@ public class URLConnection extends HttpURLConnection {
     public String getRequestProperty(String field) {
         List<String> valuesList = requestProperties.get(field);
         if (valuesList == null) {
-            return null;
-        }
+			valuesList = requestProperties.get(field.toLowerCase());
+		}
+		if (valuesList == null) {
+			return null;
+		}
         return valuesList.get(0);
     }
 
