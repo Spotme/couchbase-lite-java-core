@@ -19,10 +19,11 @@ import com.couchbase.lite.util.URIUtils;
 
 import org.apache.http.client.HttpResponseException;
 import org.apache.http.entity.mime.MultipartEntity;
-import org.apache.http.entity.mime.content.ByteArrayBody;
+import org.apache.http.entity.mime.content.InputStreamBody;
 import org.apache.http.entity.mime.content.StringBody;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -482,8 +483,8 @@ public final class Pusher extends Replication implements Database.ChangeListener
             }
          */
         Map<String, Object> attachments = (Map<String, Object>) revProps.get("_attachments");
-        for (String attachmentKey : attachments.keySet()) {
-            Map<String, Object> attachment = (Map<String, Object>) attachments.get(attachmentKey);
+        for (String attachmentFileName : attachments.keySet()) {
+            Map<String, Object> attachment = (Map<String, Object>) attachments.get(attachmentFileName);
             if (attachment.containsKey("follows")) {
 
                 if (multiPart == null) {
@@ -505,12 +506,11 @@ public final class Pusher extends Replication implements Database.ChangeListener
                 String base64Digest = (String) attachment.get("digest");
                 BlobKey blobKey = new BlobKey(base64Digest);
 
-	            byte[] attachmentBytes = blobStore.blobForKey(blobKey);
-	            if (attachmentBytes == null) {
+	            InputStream inputStream = blobStore.blobStreamForKey(blobKey);
+	            if (inputStream == null) {
                     Log.w(Log.TAG_SYNC, "Unable to find blob file for blobKey: %s - Skipping upload of multipart revision.", blobKey);
                     multiPart = null;
-                }
-                else {
+                } else {
                     String contentType = null;
                     if (attachment.containsKey("content_type")) {
                         contentType = (String) attachment.get("content_type");
@@ -520,9 +520,9 @@ public final class Pusher extends Replication implements Database.ChangeListener
                                 " field name instead of content_type (see couchbase-lite-android" +
                                 " issue #80): %s", attachment);
                     }
-		            ByteArrayBody byteArrayBody = new ByteArrayBody(attachmentBytes, attachmentKey);
+		            InputStreamBody inputStreamBody = new InputStreamBody(inputStream, contentType, attachmentFileName);
 
-                    multiPart.addPart(attachmentKey, byteArrayBody);
+                    multiPart.addPart(attachmentFileName, inputStreamBody);
                 }
 
             }
