@@ -97,15 +97,23 @@ public class BlobStore {
         }
     }
 
+	/**
+	 * @return path to ENCRYPTED file. Never use outside of this class.
+	 *
+	 * To get decrypted data use {@link #blobForKey(BlobKey)}  or {@link #blobStreamForKey(BlobKey)}
+	 */
     public String pathForKey(BlobKey key) {
         return storeDir + File.separator + BlobKey.convertToHex(key.getBytes()) + FILE_EXTENSION;
     }
 
+	/**
+	 * @return size of decrypted attachment stored in requested blob
+	 */
     public long getSizeOfBlob(BlobKey key) {
-        final String path = pathForKey(key);
-        final File file = new File(path);
-
-        return file.length();
+	    byte[] decryptedAttachmentBytes = blobForKey(key);
+	    return decryptedAttachmentBytes != null
+			    ? decryptedAttachmentBytes.length
+			    : 0L;
     }
 
     public boolean getKeyForFilename(BlobKey outKey, String filename) {
@@ -118,19 +126,27 @@ public class BlobStore {
         return true;
     }
 
+	/**
+	 * @return bytes of decrypted file from requested blob
+	 */
     public byte[] blobForKey(BlobKey key) {
-        final String path = pathForKey(key);
-        final File file = new File(path);
+	    InputStream inStream = blobStreamForKey(key);
+	    if (inStream == null) return null;
 
-        try {
-            return getBytesFromFile(file);
-        } catch (IOException e) {
-            Log.e(Log.TAG_BLOB_STORE, "Error reading file", e);
-            return null;
-        }
+	    ByteArrayOutputStream outStream = new ByteArrayOutputStream();
+	    try {
+		    StreamUtils.copyStream(inStream, outStream);
+		    return outStream.toByteArray();
+	    } catch (IOException e) {
+		    Log.e(Log.TAG_BLOB_STORE, "Error reading file", e);
+		    return null;
+	    }
     }
 
-    public InputStream blobStreamForKey(BlobKey key) {
+	/**
+	 * @return stream of decrypted file from requested blob
+	 */
+	public InputStream blobStreamForKey(BlobKey key) {
         try {
             final String path = pathForKey(key);
             final File file = new File(path);
@@ -198,23 +214,6 @@ public class BlobStore {
         }
 
         return true;
-    }
-
-    private static byte[] getBytesFromFile(File file) throws IOException {
-        InputStream in = null;
-
-        try {
-            in = FileEncryptionUtils.readFile(file);
-
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            StreamUtils.copyStream(in, out);
-
-            return out.toByteArray();
-        } catch (IOException io) {
-            throw new IOException(io);
-        } finally {
-            try { in.close(); } catch (Exception e) { /** Ignore **/ }
-        }
     }
 
     public Set<BlobKey> allKeys() {
