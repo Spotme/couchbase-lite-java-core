@@ -65,16 +65,16 @@ public final class Puller extends Replication implements ChangeTrackerClient {
      * Constructor
      */
     @InterfaceAudience.Private
-    /* package */ public Puller(Database db, URL remote, String replID, boolean continuous, ScheduledExecutorService workExecutor) {
-        this(db, remote, replID, continuous, null, workExecutor);
+    /* package */ public Puller(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, ScheduledExecutorService workExecutor) {
+        this(db, remote, replID, remoteDbUuid, continuous, null, workExecutor);
     }
 
     /**
      * Constructor
      */
     @InterfaceAudience.Private
-    /* package */ public Puller(Database db, URL remote, String replID, boolean continuous, HttpClientFactory clientFactory, ScheduledExecutorService workExecutor) {
-        super(db, remote, replID, continuous, clientFactory, workExecutor);
+    /* package */ public Puller(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, HttpClientFactory clientFactory, ScheduledExecutorService workExecutor) {
+        super(db, remote, replID, remoteDbUuid, continuous, clientFactory, workExecutor);
     }
 
     @Override

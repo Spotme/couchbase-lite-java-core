@@ -436,7 +436,7 @@ public final class Manager {
      * @exclude
      */
     @InterfaceAudience.Private
-    Replication replicationWithDatabase(Database db, URL remote, boolean push, boolean create, boolean start) {
+    Replication replicationWithDatabase(Database db, URL remote, String remoteDbUuid, boolean push, boolean create, boolean start) {
         for (Replication replicator : replications) {
             if (replicator.getLocalDatabase() == db && replicator.getRemoteUrl().equals(remote) && replicator.isPull() == !push) {
                 return replicator;
@@ -451,10 +451,10 @@ public final class Manager {
         final boolean continuous = false;
 
         if (push) {
-            replicator = new Pusher(db, remote, null, continuous, getWorkExecutor());
+            replicator = new Pusher(db, remote, null, remoteDbUuid, continuous, getWorkExecutor());
         }
         else {
-            replicator = new Puller(db, remote, null, continuous, getWorkExecutor());
+            replicator = new Puller(db, remote, null, remoteDbUuid, continuous, getWorkExecutor());
         }
 
         replications.add(replicator);
@@ -534,6 +534,8 @@ public final class Manager {
         String source = (String)sourceMap.get("url");
         String target = (String)targetMap.get("url");
 
+	    String remoteDbUuid = (String)properties.get("node_db_uuid");
+
         Boolean createTargetBoolean = (Boolean)properties.get("create_target");
         boolean createTarget = (createTargetBoolean != null && createTargetBoolean.booleanValue());
 
@@ -605,7 +607,7 @@ public final class Manager {
 
 
         if(!cancel) {
-            repl = db.getReplicator(remote, replicationID, getDefaultHttpClientFactory(), push, continuous, getWorkExecutor());
+            repl = db.getReplicator(remote, replicationID, remoteDbUuid, getDefaultHttpClientFactory(), push, continuous, getWorkExecutor());
             if(repl == null) {
                 throw new CouchbaseLiteException("unable to create replicator with remote: " + remote, new Status(Status.INTERNAL_SERVER_ERROR));
             }
@@ -635,7 +637,7 @@ public final class Manager {
 
         } else {
             // Cancel replication:
-            repl = db.getActiveReplicator(replicationID, remote, push);
+            repl = db.getActiveReplicator(replicationID, remote, remoteDbUuid, push);
             if(repl == null) {
                 throw new CouchbaseLiteException("unable to lookup replicator with remote: " + remote, new Status(Status.NOT_FOUND));
             }

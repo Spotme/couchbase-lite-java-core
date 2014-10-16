@@ -708,7 +708,7 @@ public final class Database {
     @InterfaceAudience.Public
     public Replication createPushReplication(URL remote) {
         final boolean continuous = false;
-        return new Pusher(this, remote, null, continuous, manager.getWorkExecutor());
+        return new Pusher(this, remote, null, null, continuous, manager.getWorkExecutor());
     }
 
     /**
@@ -720,7 +720,7 @@ public final class Database {
     @InterfaceAudience.Public
     public Replication createPullReplication(URL remote) {
         final boolean continuous = false;
-        return new Puller(this, remote, null, continuous, manager.getWorkExecutor());
+        return new Puller(this, remote, null, null, continuous, manager.getWorkExecutor());
     }
 
 
@@ -4012,13 +4012,18 @@ public final class Database {
 
     /**
      * @exclude
+     *
+     * @remoteDbUuid uuid of db on server side. Can be null if not provided by server side
      */
     @InterfaceAudience.Private
-    public Replication getActiveReplicator(String replicationID, URL remote, boolean push) {
+    public Replication getActiveReplicator(String replicationID, URL remote, String remoteDbUuid, boolean push) {
         if(activeReplicators != null) {
             for (Replication replicator : activeReplicators) {
                 if(replicator.getReplicationID().equals(replicationID)
 	                && replicator.getRemoteUrl().equals(remote)
+		            && (remoteDbUuid == null    //replace with Java 7 methods
+		                ? replicator.getRemoteDbUuid() == null
+	                    : replicator.getRemoteDbUuid().equals(remoteDbUuid))
 		            && replicator.isPull() == !push
 		            && replicator.isRunning()) {
 
@@ -4033,8 +4038,8 @@ public final class Database {
      * @exclude
      */
     @InterfaceAudience.Private
-    public Replication getReplicator(URL remote, boolean push, boolean continuous, ScheduledExecutorService workExecutor) {
-        Replication replicator = getReplicator(remote, null, null, push, continuous, workExecutor);
+    public Replication getReplicator(URL remote, String remoteDbUuid, boolean push, boolean continuous, ScheduledExecutorService workExecutor) {
+        Replication replicator = getReplicator(remote, null, remoteDbUuid, null, push, continuous, workExecutor);
 
     	return replicator;
     }
@@ -4056,14 +4061,17 @@ public final class Database {
 
     /**
      * @exclude
+     *
+     * @remoteDbUuid uuid of db on server side. Can be null if not provided by server side
+     *
      */
     @InterfaceAudience.Private
-    public Replication getReplicator(URL remote, String replID, HttpClientFactory httpClientFactory, boolean push, boolean continuous, ScheduledExecutorService workExecutor) {
-        Replication result = getActiveReplicator(replID, remote, push);
+    public Replication getReplicator(URL remote, String replID, String remoteDbUuid, HttpClientFactory httpClientFactory, boolean push, boolean continuous, ScheduledExecutorService workExecutor) {
+        Replication result = getActiveReplicator(replID, remote, remoteDbUuid, push);
         if(result != null) {
             return result;
         }
-        result = push ? new Pusher(this, remote, replID, continuous, httpClientFactory, workExecutor) : new Puller(this, remote, replID, continuous, httpClientFactory, workExecutor);
+        result = push ? new Pusher(this, remote, replID, remoteDbUuid, continuous, httpClientFactory, workExecutor) : new Puller(this, remote, replID, remoteDbUuid, continuous, httpClientFactory, workExecutor);
 
         return result;
     }

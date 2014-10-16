@@ -1,6 +1,5 @@
 package com.couchbase.lite.replicator;
 
-import com.couchbase.lite.AsyncTask;
 import com.couchbase.lite.CouchbaseLiteException;
 import com.couchbase.lite.Database;
 import com.couchbase.lite.Manager;
@@ -63,11 +62,13 @@ public abstract class Replication {
 
     private static int lastSessionID = 0;
 
-    protected boolean continuous;
+	protected boolean continuous;
     protected String filterName;
     protected ScheduledExecutorService workExecutor;
     protected Database db;
     protected URL remote;
+
+	protected final String remoteDbUuid;
     protected String lastSequence;
     protected boolean running;
     protected boolean active;
@@ -139,8 +140,8 @@ public abstract class Replication {
      * @exclude
      */
     @InterfaceAudience.Private
-    /* package */ Replication(Database db, URL remote, String replID, boolean continuous, ScheduledExecutorService workExecutor) {
-        this(db, remote, replID, continuous, null, workExecutor);
+    /* package */ Replication(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, ScheduledExecutorService workExecutor) {
+        this(db, remote, replID, remoteDbUuid, continuous, null, workExecutor);
     }
 
     /**
@@ -148,13 +149,14 @@ public abstract class Replication {
      * @exclude
      */
     @InterfaceAudience.Private
-    /* package */ Replication(Database db, URL remote, String replID, boolean continuous, HttpClientFactory clientFactory, ScheduledExecutorService workExecutor) {
+    /* package */ Replication(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, HttpClientFactory clientFactory, ScheduledExecutorService workExecutor) {
 
         this.db = db;
 	    this.replicationID = replID;
         this.continuous = continuous;
         this.workExecutor = workExecutor;
         this.remote = remote;
+	    this.remoteDbUuid = remoteDbUuid;
         this.remoteRequestExecutor = Executors.newFixedThreadPool(EXECUTOR_THREAD_POOL_SIZE);
         this.changeListeners = new CopyOnWriteArrayList<ChangeListener>();
         this.online = true;
@@ -263,6 +265,13 @@ public abstract class Replication {
     public URL getRemoteUrl() {
         return remote;
     }
+
+	/**
+	 * Get the uuid of remote db if provided by server side. Null otherwise.
+	 */
+	public String getRemoteDbUuid() {
+		return remoteDbUuid;
+	}
 
     /**
      * Is this a pull replication?  (Eg, it pulls data from Sync Gateway -> Device running CBL?)
@@ -1166,6 +1175,8 @@ public abstract class Replication {
             spec.put("remoteURL", remote.toExternalForm());
             spec.put("push", !isPull());
             spec.put("continuous", isContinuous());
+	        spec.put("remote_db_uuid", getRemoteDbUuid());
+
             if (getFilter() != null) {
                 spec.put("filter", getFilter());
             }
