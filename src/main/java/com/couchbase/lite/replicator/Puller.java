@@ -108,11 +108,12 @@ public final class Puller extends Replication implements ChangeTrackerClient {
             changeTracker.stop();
             changeTracker = null;
             Log.v(Log.TAG_SYNC, "%s | %s : puller.stop() calling asyncTaskFinished()", this, Thread.currentThread());
-	        /* Required to stop continuous replication, that synced nothing from remote db yet.
-	         * For continuous replication, that already synced something from remote db, this lead to "asyncTaskCount = -1",
-	         * but it's "ok" since we stopping replication and it will not be used anymore.*/
-	        asyncTaskFinished(1);  // balances asyncTaskStarted() in beginReplicating()
         }
+
+		/* Required to stop continuous replication, that synced nothing from remote db yet.
+		 * For continuous replication, that already synced something from remote db, this lead to "asyncTaskCount = -1",
+		 * but it's "ok" since we stopping replication and it will not be used anymore.*/
+		asyncTaskFinished(1);  // balances asyncTaskStarted() in beginReplicating()
 
         synchronized (this) {
             revsToPull = null;
