@@ -102,7 +102,9 @@ public abstract class Replication {
     protected static int RETRY_DELAY = 60;
     protected static final int PROCESSOR_DELAY = 500;
     protected static final int INBOX_CAPACITY = 100;
-    protected static final int EXECUTOR_THREAD_POOL_SIZE = 5;
+
+	/** We should have the same number of http connection with "keep-alive" **/
+	public static final int EXECUTOR_THREAD_POOL_SIZE = 5;
 
 
     /**
