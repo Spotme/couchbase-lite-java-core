@@ -545,6 +545,8 @@ public final class Manager {
         Boolean cancelBoolean = (Boolean)properties.get("cancel");
         boolean cancel = (cancelBoolean != null && cancelBoolean.booleanValue());
 
+	    List <String> docsToReplicate = (List <String>) properties.get("doc_ids");
+
 	    String replicationID = (String) properties.get("_replication_id");
 
         // Map the 'source' and 'target' JSON params to a local database and remote URL:
@@ -629,6 +631,10 @@ public final class Manager {
                     repl.setFilterParams(filterParams);
                 }
             }
+
+	        if (docsToReplicate != null && !docsToReplicate.isEmpty()) {
+		        repl.setDocIds(docsToReplicate);
+	        }
 
             if(push) {
                 ((Pusher)repl).setCreateTarget(createTarget);
