@@ -65,16 +65,17 @@ public final class Puller extends Replication implements ChangeTrackerClient {
      * Constructor
      */
     @InterfaceAudience.Private
-    /* package */ public Puller(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, ScheduledExecutorService workExecutor) {
-        this(db, remote, replID, remoteDbUuid, continuous, null, workExecutor);
+    /* package */ public Puller(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, boolean bulkGet, ScheduledExecutorService workExecutor) {
+        this(db, remote, replID, remoteDbUuid, continuous, bulkGet, null, workExecutor);
     }
 
     /**
      * Constructor
      */
     @InterfaceAudience.Private
-    /* package */ public Puller(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, HttpClientFactory clientFactory, ScheduledExecutorService workExecutor) {
+    /* package */ public Puller(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, boolean bulkGet, HttpClientFactory clientFactory, ScheduledExecutorService workExecutor) {
         super(db, remote, replID, remoteDbUuid, continuous, clientFactory, workExecutor);
+        canBulkGet = bulkGet;
     }
 
     @Override
@@ -330,10 +331,6 @@ public final class Puller extends Replication implements ChangeTrackerClient {
     @Override
     @InterfaceAudience.Private
     protected void processInbox(RevisionList inbox) {
-        if (canBulkGet == null) {
-            canBulkGet = serverIsSyncGatewayVersion("0.81");
-        }
-
         // Ask the local database which of the revs are not known to it:
         String lastInboxSequence = ((PulledRevision) inbox.get(inbox.size() - 1)).getRemoteSequenceID();
 

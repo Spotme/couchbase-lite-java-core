@@ -718,9 +718,9 @@ public final class Database {
      * @return A new Replication that will pull from the source Database at the given url.
      */
     @InterfaceAudience.Public
-    public Replication createPullReplication(URL remote) {
+    public Replication createPullReplication(URL remote, boolean bulkGet) {
         final boolean continuous = false;
-        return new Puller(this, remote, null, null, continuous, manager.getWorkExecutor());
+        return new Puller(this, remote, null, null, continuous, bulkGet, manager.getWorkExecutor());
     }
 
 
@@ -4039,7 +4039,7 @@ public final class Database {
      */
     @InterfaceAudience.Private
     public Replication getReplicator(URL remote, String remoteDbUuid, boolean push, boolean continuous, ScheduledExecutorService workExecutor) {
-        Replication replicator = getReplicator(remote, null, remoteDbUuid, null, push, continuous, workExecutor);
+        Replication replicator = getReplicator(remote, null, remoteDbUuid, null, push, continuous, false, workExecutor);
 
     	return replicator;
     }
@@ -4066,12 +4066,12 @@ public final class Database {
      *
      */
     @InterfaceAudience.Private
-    public Replication getReplicator(URL remote, String replID, String remoteDbUuid, HttpClientFactory httpClientFactory, boolean push, boolean continuous, ScheduledExecutorService workExecutor) {
+    public Replication getReplicator(URL remote, String replID, String remoteDbUuid, HttpClientFactory httpClientFactory, boolean push, boolean continuous, boolean bulkGet, ScheduledExecutorService workExecutor) {
         Replication result = getActiveReplicator(replID, remote, remoteDbUuid, push);
         if(result != null) {
             return result;
         }
-        result = push ? new Pusher(this, remote, replID, remoteDbUuid, continuous, httpClientFactory, workExecutor) : new Puller(this, remote, replID, remoteDbUuid, continuous, httpClientFactory, workExecutor);
+        result = push ? new Pusher(this, remote, replID, remoteDbUuid, continuous, httpClientFactory, workExecutor) : new Puller(this, remote, replID, remoteDbUuid, continuous, bulkGet, httpClientFactory, workExecutor);
 
         return result;
     }

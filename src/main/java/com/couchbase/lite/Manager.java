@@ -454,7 +454,7 @@ public final class Manager {
             replicator = new Pusher(db, remote, null, remoteDbUuid, continuous, getWorkExecutor());
         }
         else {
-            replicator = new Puller(db, remote, null, remoteDbUuid, continuous, getWorkExecutor());
+            replicator = new Puller(db, remote, null, remoteDbUuid, continuous, false, getWorkExecutor());
         }
 
         replications.add(replicator);
@@ -539,6 +539,9 @@ public final class Manager {
         Boolean createTargetBoolean = (Boolean)properties.get("create_target");
         boolean createTarget = (createTargetBoolean != null && createTargetBoolean.booleanValue());
 
+        Boolean bulkGetBoolean = (Boolean)properties.get("bulk_get");
+        boolean bulkGet = (bulkGetBoolean != null && bulkGetBoolean.booleanValue());
+
         Boolean continuousBoolean = (Boolean)properties.get("continuous");
         boolean continuous = (continuousBoolean != null && continuousBoolean.booleanValue());
 
@@ -609,7 +612,7 @@ public final class Manager {
 
 
         if(!cancel) {
-            repl = db.getReplicator(remote, replicationID, remoteDbUuid, getDefaultHttpClientFactory(), push, continuous, getWorkExecutor());
+            repl = db.getReplicator(remote, replicationID, remoteDbUuid, getDefaultHttpClientFactory(), push, continuous, bulkGet, getWorkExecutor());
             if(repl == null) {
                 throw new CouchbaseLiteException("unable to create replicator with remote: " + remote, new Status(Status.INTERNAL_SERVER_ERROR));
             }
@@ -619,6 +622,11 @@ public final class Manager {
             }
 
             Map<String, Object> headers = (Map) properties.get("headers");
+            if (headers == null) headers = new HashMap<String, Object>();
+            if (remoteMap != null && remoteMap.containsKey("headers")) {
+                Map<String, String> sourceHeaders = (Map<String, String>) remoteMap.get("headers");
+                headers.putAll(sourceHeaders);
+            }
             if (headers != null && !headers.isEmpty()) {
                 repl.setHeaders(headers);
             }
