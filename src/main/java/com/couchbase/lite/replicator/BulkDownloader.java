@@ -26,6 +26,7 @@ import org.apache.http.impl.client.DefaultHttpClient;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -255,7 +256,9 @@ public class BulkDownloader extends RemoteRequest implements MultipartReaderDele
                 Map<String, Object> mapped = new HashMap<String, Object>();
                 mapped.put("id", source.getDocId());
                 mapped.put("rev", source.getRevId());
-                mapped.put("atts_since", attsSince);
+                if (attsSince != null) mapped.put("atts_since", attsSince);
+                else  mapped.put("atts_since", new ArrayList<String>());
+
 
                 return mapped;
             }
