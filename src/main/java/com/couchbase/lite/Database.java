@@ -3394,9 +3394,11 @@ public final class Database {
 			    final String docName = docId.replace("_design/", "");
 			    final Map<String, Object> views = (Map<String, Object>) rev.getPropertyForKey("views");
 
-			    for (final String viewName : views.keySet()) {
-				    deleteViewNamed(String.format("%s/%s", docName, viewName));
-			    }
+                if (views != null) {
+                    for (final String viewName : views.keySet()) {
+                        deleteViewNamed(String.format("%s/%s", docName, viewName));
+                    }
+                }
 		    } catch (Exception e) {
 			    Log.e(Database.TAG, "Unable to delete named view!");
 		    }
