@@ -148,7 +148,7 @@ public final class Puller extends Replication implements ChangeTrackerClient {
     public void beginReplicating() {
 
         if (downloadsToInsert == null) {
-            int capacity = 200;
+            int capacity = INBOX_CAPACITY;
             int delay = 1000;
             downloadsToInsert = new Batcher<RevisionInternal>(workExecutor, capacity, delay, new BatchProcessor<RevisionInternal>() {
                 @Override
