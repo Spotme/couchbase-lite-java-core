@@ -78,7 +78,6 @@ public abstract class Replication {
     protected int asyncTaskCount;
     protected AtomicInteger completedChangesCount;
     private AtomicInteger changesCount;
-    protected boolean online;
     protected HttpClientFactory clientFactory;
     private final List<ChangeListener> changeListeners;
     protected List<String> documentIDs;
@@ -89,6 +88,9 @@ public abstract class Replication {
     private ReplicationStatus status = ReplicationStatus.REPLICATION_STOPPED;
     protected Map<String, Object> requestHeaders;
     private int revisionsFailed;
+	/**
+	 * To re-start continuous replication
+	 */
     private ScheduledFuture retryIfReadyFuture;
     private final Map<RemoteRequest, Future> requests;
     private String serverType;
@@ -161,7 +163,6 @@ public abstract class Replication {
 	    this.remoteDbUuid = remoteDbUuid;
         this.remoteRequestExecutor = Executors.newFixedThreadPool(EXECUTOR_THREAD_POOL_SIZE);
         this.changeListeners = new CopyOnWriteArrayList<ChangeListener>();
-        this.online = true;
         this.requestHeaders = new HashMap<String, Object>();
         this.requests = new ConcurrentHashMap<RemoteRequest, Future>();
 
@@ -538,13 +539,9 @@ public abstract class Replication {
         } else {
             Log.v(Log.TAG_SYNC, "%s: stop() called, not calling db.forgetReplication() since it's null", this);
         }
-        if (running && asyncTaskCount <= 0) {
-            Log.v(Log.TAG_SYNC, "%s: calling stopped()", this);
-            stopped();
-        } else {
-            Log.v(Log.TAG_SYNC, "%s: not calling stopped().  running: %s asyncTaskCount: %d", this, running, asyncTaskCount);
-        }
-    }
+        Log.v(Log.TAG_SYNC, "%s: calling stopped()", this);
+        stopped();
+}
 
     /**
      * Restarts a completed or failed replication.
@@ -1251,8 +1248,6 @@ public abstract class Replication {
     /* package */ void updateProgress() {
         if (!isRunning()) {
             status = ReplicationStatus.REPLICATION_STOPPED;
-        } else if (!online) {
-            status = ReplicationStatus.REPLICATION_OFFLINE;
         } else {
             if (active) {
                 status = ReplicationStatus.REPLICATION_ACTIVE;
@@ -1324,36 +1319,43 @@ public abstract class Replication {
     }
 
     /**
-     * Called after a continuous replication has gone idle, but it failed to transfer some revisions
-     * and so wants to try again in a minute. Should be overridden by subclasses.
+     * Called after a <b> continuous </b> replication has gone idle, but it failed to transfer some revisions
+     * and so wants to try again in a minute.
+     *
+     * <b> Should be overridden by subclasses. </b>
      */
     @InterfaceAudience.Private
     protected void retry() {
         setError(null);
     }
 
+	/**
+	 * @see #retry()
+	 */
     @InterfaceAudience.Private
     protected void retryIfReady() {
         if (!running) {
             return;
         }
-        if (online) {
-            Log.d(Log.TAG_SYNC, "%s: RETRYING, to transfer missed revisions", this);
-            revisionsFailed = 0;
-            cancelPendingRetryIfReady();
-            retry();
-        } else {
-            scheduleRetryIfReady();
-        }
+        Log.d(Log.TAG_SYNC, "%s: RETRYING, to transfer missed revisions", this);
+        revisionsFailed = 0;
+        cancelPendingRetryIfReady();
+        retry();
     }
 
+	/**
+	 * @see #retry()
+	 */
     @InterfaceAudience.Private
     protected void cancelPendingRetryIfReady() {
-        if (retryIfReadyFuture != null && retryIfReadyFuture.isCancelled() == false) {
+        if (retryIfReadyFuture != null && !retryIfReadyFuture.isCancelled()) {
             retryIfReadyFuture.cancel(true);
         }
     }
 
+	/**
+	 * @see #retry()
+	 */
     @InterfaceAudience.Private
     protected void scheduleRetryIfReady() {
         retryIfReadyFuture = workExecutor.schedule(new Runnable() {

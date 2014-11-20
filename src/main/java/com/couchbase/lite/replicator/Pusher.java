@@ -192,14 +192,14 @@ public final class Pusher extends Replication implements Database.ChangeListener
             maxPendingSequence = Long.parseLong(lastSequence);
         } catch (NumberFormatException e) {
             Log.w(Log.TAG_SYNC, "Error converting lastSequence: %s to long.  Using 0", lastSequence);
-            maxPendingSequence = new Long(0);
+            maxPendingSequence = (long) 0;
         }
 
         if(filterName != null) {
             filter = db.getFilter(filterName);
         }
         if(filterName != null && filter == null) {
-            Log.w(Log.TAG_SYNC, "%s: No ReplicationFilter registered for filter '%s'; ignoring", this, filterName);;
+            Log.w(Log.TAG_SYNC, "%s: No ReplicationFilter registered for filter '%s'; ignoring", this, filterName);
         }
 
         // Process existing changes since the last push:

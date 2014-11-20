@@ -2,7 +2,6 @@ package com.couchbase.lite.support;
 
 import com.couchbase.lite.util.Log;
 
-import java.io.InterruptedIOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
@@ -219,7 +218,7 @@ public class Batcher<T> {
             delayToUse = 0;
         }
 
-        Log.v(Log.TAG_SYNC, "%s: delayToUse() delta: %d, delayToUse: %d, delay: %d", this, delta, delayToUse, delta);
+        Log.v(Log.TAG_SYNC, "%s: delayToUse() delta: %d, delayToUse: %d, delay: %d", this, delta, delayToUse, delay);
 
         return delayToUse;
     }
