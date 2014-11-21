@@ -454,7 +454,7 @@ public final class Manager {
             replicator = new Pusher(db, remote, null, remoteDbUuid, continuous, getWorkExecutor());
         }
         else {
-            replicator = new Puller(db, remote, null, remoteDbUuid, continuous, false, getWorkExecutor());
+            replicator = new Puller(db, remote, null, remoteDbUuid, continuous, false, false, getWorkExecutor());
         }
 
         replications.add(replicator);
@@ -542,6 +542,9 @@ public final class Manager {
         Boolean bulkGetBoolean = (Boolean)properties.get("bulk_get");
         boolean bulkGet = (bulkGetBoolean != null && bulkGetBoolean.booleanValue());
 
+        Boolean ignoreRemovedBoolean = (Boolean)properties.get("ignore_removed");
+        boolean ignoreRemoved = (ignoreRemovedBoolean != null && ignoreRemovedBoolean.booleanValue());
+
         Boolean continuousBoolean = (Boolean)properties.get("continuous");
         boolean continuous = (continuousBoolean != null && continuousBoolean.booleanValue());
 
@@ -612,7 +615,7 @@ public final class Manager {
 
 
         if(!cancel) {
-            repl = db.getReplicator(remote, replicationID, remoteDbUuid, getDefaultHttpClientFactory(), push, continuous, bulkGet, getWorkExecutor());
+            repl = db.getReplicator(remote, replicationID, remoteDbUuid, getDefaultHttpClientFactory(), push, continuous, bulkGet, ignoreRemoved, getWorkExecutor());
             if(repl == null) {
                 throw new CouchbaseLiteException("unable to create replicator with remote: " + remote, new Status(Status.INTERNAL_SERVER_ERROR));
             }

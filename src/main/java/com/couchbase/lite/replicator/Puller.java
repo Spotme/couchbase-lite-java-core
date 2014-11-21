@@ -50,6 +50,9 @@ public final class Puller extends Replication implements ChangeTrackerClient {
     // Does the server support _bulk_get requests?
     protected Boolean canBulkGet;
 
+    // Ignore the removed items in changes?
+    protected boolean ignoreRemoved;
+
     // Have I received all current _changes entries?
     protected AtomicBoolean caughtUp;
 
@@ -65,17 +68,18 @@ public final class Puller extends Replication implements ChangeTrackerClient {
      * Constructor
      */
     @InterfaceAudience.Private
-    /* package */ public Puller(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, boolean bulkGet, ScheduledExecutorService workExecutor) {
-        this(db, remote, replID, remoteDbUuid, continuous, bulkGet, null, workExecutor);
+    /* package */ public Puller(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, boolean bulkGet, boolean ignoreRemoved, ScheduledExecutorService workExecutor) {
+        this(db, remote, replID, remoteDbUuid, continuous, bulkGet, ignoreRemoved, null, workExecutor);
     }
 
     /**
      * Constructor
      */
     @InterfaceAudience.Private
-    /* package */ public Puller(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, boolean bulkGet, HttpClientFactory clientFactory, ScheduledExecutorService workExecutor) {
+    /* package */ public Puller(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, boolean bulkGet, boolean ignoreRm, HttpClientFactory clientFactory, ScheduledExecutorService workExecutor) {
         super(db, remote, replID, remoteDbUuid, continuous, clientFactory, workExecutor);
         canBulkGet = bulkGet;
+        ignoreRemoved = ignoreRm;
     }
 
     @Override
@@ -229,7 +233,10 @@ public final class Puller extends Replication implements ChangeTrackerClient {
         }
 
         boolean removed = (change.containsKey("removed") && ((Boolean) change.get("removed")).equals(Boolean.TRUE));
-        if (removed) return;
+        if (removed && ignoreRemoved) {
+            Log.e("victor", "TU PEUX PAS TEST");
+            return;
+        }
 
         boolean deleted = (change.containsKey("deleted") && ((Boolean) change.get("deleted")).equals(Boolean.TRUE));
         List<Map<String, Object>> changes = (List<Map<String, Object>>) change.get("changes");

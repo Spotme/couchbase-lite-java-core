@@ -720,7 +720,7 @@ public final class Database {
     @InterfaceAudience.Public
     public Replication createPullReplication(URL remote, boolean bulkGet) {
         final boolean continuous = false;
-        return new Puller(this, remote, null, null, continuous, bulkGet, manager.getWorkExecutor());
+        return new Puller(this, remote, null, null, continuous, bulkGet, false, manager.getWorkExecutor());
     }
 
 
@@ -4040,8 +4040,8 @@ public final class Database {
      * @exclude
      */
     @InterfaceAudience.Private
-    public Replication getReplicator(URL remote, String remoteDbUuid, boolean push, boolean continuous, ScheduledExecutorService workExecutor) {
-        Replication replicator = getReplicator(remote, null, remoteDbUuid, null, push, continuous, false, workExecutor);
+    public Replication getReplicator(URL remote, String remoteDbUuid, boolean push, boolean continuous,boolean bulkGet, boolean ignoredRemoved, ScheduledExecutorService workExecutor) {
+        Replication replicator = getReplicator(remote, null, remoteDbUuid, null, push, continuous, bulkGet, ignoredRemoved, workExecutor);
 
     	return replicator;
     }
@@ -4068,12 +4068,12 @@ public final class Database {
      *
      */
     @InterfaceAudience.Private
-    public Replication getReplicator(URL remote, String replID, String remoteDbUuid, HttpClientFactory httpClientFactory, boolean push, boolean continuous, boolean bulkGet, ScheduledExecutorService workExecutor) {
+    public Replication getReplicator(URL remote, String replID, String remoteDbUuid, HttpClientFactory httpClientFactory, boolean push, boolean continuous, boolean bulkGet, boolean ignoreRemoved, ScheduledExecutorService workExecutor) {
         Replication result = getActiveReplicator(replID, remote, remoteDbUuid, push);
         if(result != null) {
             return result;
         }
-        result = push ? new Pusher(this, remote, replID, remoteDbUuid, continuous, httpClientFactory, workExecutor) : new Puller(this, remote, replID, remoteDbUuid, continuous, bulkGet, httpClientFactory, workExecutor);
+        result = push ? new Pusher(this, remote, replID, remoteDbUuid, continuous, httpClientFactory, workExecutor) : new Puller(this, remote, replID, remoteDbUuid, continuous, bulkGet, ignoreRemoved, httpClientFactory, workExecutor);
 
         return result;
     }
