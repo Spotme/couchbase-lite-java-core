@@ -227,6 +227,10 @@ public final class Puller extends Replication implements ChangeTrackerClient {
             Log.w(Log.TAG_SYNC, "%s: Received invalid doc ID from _changes: %s", this, change);
             return;
         }
+
+        boolean removed = (change.containsKey("removed") && ((Boolean) change.get("removed")).equals(Boolean.TRUE));
+        if (removed) return;
+
         boolean deleted = (change.containsKey("deleted") && ((Boolean) change.get("deleted")).equals(Boolean.TRUE));
         List<Map<String, Object>> changes = (List<Map<String, Object>>) change.get("changes");
         for (Map<String, Object> changeDict : changes) {
