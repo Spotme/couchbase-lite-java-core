@@ -110,6 +110,7 @@ public abstract class Replication {
 	/** We should have the same number of http connection with "keep-alive" **/
 	public static final int EXECUTOR_THREAD_POOL_SIZE = 5;
 
+    public static final int DEFAULT_BATCH_SIZE = 100;
 
     /**
      * @exclude
@@ -146,8 +147,8 @@ public abstract class Replication {
      * @exclude
      */
     @InterfaceAudience.Private
-    /* package */ Replication(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, Integer batchSize, ScheduledExecutorService workExecutor) {
-        this(db, remote, replID, remoteDbUuid, continuous, batchSize, null, workExecutor);
+    /* package */ Replication(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, Integer sizeBatch, ScheduledExecutorService workExecutor) {
+        this(db, remote, replID, remoteDbUuid, continuous, sizeBatch, null, workExecutor);
     }
 
     /**
@@ -155,13 +156,13 @@ public abstract class Replication {
      * @exclude
      */
     @InterfaceAudience.Private
-    /* package */ Replication(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, Integer batchSize, HttpClientFactory clientFactory, ScheduledExecutorService workExecutor) {
+    /* package */ Replication(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, Integer sizeBatch, HttpClientFactory clientFactory, ScheduledExecutorService workExecutor) {
 
         this.db = db;
 	    this.replicationID = replID;
         this.continuous = continuous;
-        if (batchSize != null) this.batchSize = batchSize;
-        else this.batchSize = 200;
+        if (sizeBatch != null) this.batchSize = sizeBatch;
+        else this.batchSize = DEFAULT_BATCH_SIZE;
         this.workExecutor = workExecutor;
         this.remote = remote;
 	    this.remoteDbUuid = remoteDbUuid;
