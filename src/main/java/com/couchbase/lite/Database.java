@@ -4025,7 +4025,7 @@ public final class Database {
 	                && replicator.getRemoteUrl().equals(remote)
 		            && (remoteDbUuid == null    //replace with Java 7 methods
 		                ? replicator.getRemoteDbUuid() == null
-	                    : replicator.getRemoteDbUuid().equals(remoteDbUuid))
+	                    : remoteDbUuid.equals(replicator.getRemoteDbUuid()))
 		            && replicator.isPull() == !push
 		            && replicator.isRunning()) {
 
