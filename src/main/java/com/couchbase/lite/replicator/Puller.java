@@ -41,8 +41,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class Puller extends Replication implements ChangeTrackerClient {
 
     private static final int MAX_OPEN_HTTP_CONNECTIONS = 16;
-    // Maximum number of revs to fetch in a single bulk request
-    public static final int MAX_REVS_TO_GET_IN_BULK = 50;
 
     // Maximum number of revision IDs to pass in an "?atts_since=" query param
     public static final int MAX_NUMBER_OF_ATTS_SINCE = 50;
@@ -68,16 +66,16 @@ public final class Puller extends Replication implements ChangeTrackerClient {
      * Constructor
      */
     @InterfaceAudience.Private
-    /* package */ public Puller(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, boolean bulkGet, boolean ignoreRemoved, ScheduledExecutorService workExecutor) {
-        this(db, remote, replID, remoteDbUuid, continuous, bulkGet, ignoreRemoved, null, workExecutor);
+    /* package */ public Puller(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, boolean bulkGet, boolean ignoreRemoved, int batchSize, ScheduledExecutorService workExecutor) {
+        this(db, remote, replID, remoteDbUuid, continuous, bulkGet, ignoreRemoved, batchSize, null, workExecutor);
     }
 
     /**
      * Constructor
      */
     @InterfaceAudience.Private
-    /* package */ public Puller(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, boolean bulkGet, boolean ignoreRm, HttpClientFactory clientFactory, ScheduledExecutorService workExecutor) {
-        super(db, remote, replID, remoteDbUuid, continuous, clientFactory, workExecutor);
+    /* package */ public Puller(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, boolean bulkGet, boolean ignoreRm, int batchS, HttpClientFactory clientFactory, ScheduledExecutorService workExecutor) {
+        super(db, remote, replID, remoteDbUuid, continuous, batchS, clientFactory, workExecutor);
         canBulkGet = bulkGet;
         ignoreRemoved = ignoreRm;
     }
@@ -152,7 +150,7 @@ public final class Puller extends Replication implements ChangeTrackerClient {
     public void beginReplicating() {
 
         if (downloadsToInsert == null) {
-            int capacity = INBOX_CAPACITY;
+            int capacity = batchSize;
             int delay = 1000;
             downloadsToInsert = new Batcher<RevisionInternal>(workExecutor, capacity, delay, new BatchProcessor<RevisionInternal>() {
                 @Override
@@ -234,7 +232,6 @@ public final class Puller extends Replication implements ChangeTrackerClient {
 
         boolean removed = (change.containsKey("removed") && ((Boolean) change.get("removed")).equals(Boolean.TRUE));
         if (removed && ignoreRemoved) {
-            Log.e("victor", "TU PEUX PAS TEST");
             return;
         }
 
@@ -441,7 +438,7 @@ public final class Puller extends Replication implements ChangeTrackerClient {
             while (httpConnectionCount + workToStartNow.size() < MAX_OPEN_HTTP_CONNECTIONS) {
                 int nBulk = 0;
                 if (bulkRevsToPull != null) {
-                    nBulk = (bulkRevsToPull.size() < MAX_REVS_TO_GET_IN_BULK) ? bulkRevsToPull.size() : MAX_REVS_TO_GET_IN_BULK;
+                    nBulk = (bulkRevsToPull.size() < batchSize) ? bulkRevsToPull.size() : batchSize;
                 }
                 if (nBulk == 1) {
                     // Rather than pulling a single revision in 'bulk', just pull it normally:
