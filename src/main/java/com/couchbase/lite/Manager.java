@@ -551,7 +551,7 @@ public final class Manager {
         } catch (Exception e){
             batchSize = 200;
         }
-
+        if (batchSize == 0) batchSize = 200;
 
         Boolean continuousBoolean = (Boolean)properties.get("continuous");
         boolean continuous = (continuousBoolean != null && continuousBoolean.booleanValue());
