@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
@@ -126,7 +127,7 @@ public final class Manager {
                 : context.getFilesDir();
 
         this.options = (options != null) ? options : DEFAULT_OPTIONS;
-        this.databases = new HashMap<String, Database>();
+        this.databases = new ConcurrentHashMap<>();
         this.replications = new ArrayList<Replication>();
 
         if (options.getDatabasePassword() != null) {
