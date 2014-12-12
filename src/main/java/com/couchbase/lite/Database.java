@@ -57,6 +57,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -4023,9 +4024,7 @@ public final class Database {
             for (Replication replicator : activeReplicators) {
                 if(replicator.getReplicationID().equals(replicationID)
 	                && replicator.getRemoteUrl().equals(remote)
-		            && (remoteDbUuid == null    //replace with Java 7 methods
-		                ? replicator.getRemoteDbUuid() == null
-	                    : remoteDbUuid.equals(replicator.getRemoteDbUuid()))
+		            && (Objects.equals(replicator.getRemoteDbUuid(), remoteDbUuid))
 		            && replicator.isPull() == !push
 		            && replicator.isRunning()) {
 

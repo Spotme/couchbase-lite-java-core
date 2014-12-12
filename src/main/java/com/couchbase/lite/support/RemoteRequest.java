@@ -17,7 +17,6 @@ import org.apache.http.StatusLine;
 import org.apache.http.auth.AuthState;
 import org.apache.http.auth.Credentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.HttpResponseException;
 import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
@@ -308,9 +307,7 @@ public class RemoteRequest implements Runnable {
                         }
                     } catch (Exception e) {
                         // don't let this crash the thread
-                        Log.e(Log.TAG_REMOTE_REQUEST,
-                                "RemoteRequestCompletionBlock throw Exception",
-                                e);
+                        Log.e(Log.TAG_REMOTE_REQUEST, "RemoteRequestCompletionBlock throw Exception", e);
                     }
                 }
             });

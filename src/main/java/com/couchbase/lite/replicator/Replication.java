@@ -962,7 +962,7 @@ public abstract class Replication {
 
                     if (!continuous) {
                         Log.d(Log.TAG_SYNC, "%s since !continuous, calling stopped()", this);
-                        stopped();
+                        stop();
                     } else if (error != null) {
                         Log.d(Log.TAG_SYNC, "%s: Failed to xfer %d revisions, will retry in %d sec",
                                 this,
