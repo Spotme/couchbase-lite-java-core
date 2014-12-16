@@ -1418,21 +1418,6 @@ public abstract class Replication {
     }
 
     @InterfaceAudience.Private
-    /* package */ boolean serverIsSyncGatewayVersion(String minVersion) {
-        String prefix = "Couchbase Sync Gateway/";
-        if (serverType == null) {
-            return false;
-        } else {
-            if (serverType.startsWith(prefix)) {
-                String versionString = serverType.substring(prefix.length());
-                return versionString.compareTo(minVersion) >= 0;
-            }
-
-        }
-        return false;
-    }
-
-    @InterfaceAudience.Private
     /* package */ void setServerType(String serverType) {
         this.serverType = serverType;
     }

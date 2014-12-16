@@ -136,11 +136,6 @@ public class ChangeTracker implements Runnable {
     }
 
     public String getChangesFeedPath() {
-
-        if (usePOST) {
-            return "_changes";
-        }
-
         String path = "_changes?feed=";
         path += getFeed();
 
@@ -154,27 +149,31 @@ public class ChangeTracker implements Runnable {
             path += "&since=" + URLEncoder.encode(lastSequenceID.toString());
         }
 
-        if (docIDs != null && docIDs.size() > 0) {
-            filterName = "_doc_ids";
-            filterParams = new HashMap<String, Object>();
-            filterParams.put("doc_ids", docIDs);
-        }
+        if (usePOST) {
+            path += "&filter=_doc_ids";
+        } else {
+            if (docIDs != null && docIDs.size() > 0) {
+                filterName = "_doc_ids";
+                filterParams = new HashMap<String, Object>();
+                filterParams.put("doc_ids", docIDs);
+            }
 
-        if(filterName != null) {
-            path += "&filter=" + URLEncoder.encode(filterName);
-            if(filterParams != null) {
-                for (String filterParamKey : filterParams.keySet()) {
+            if(filterName != null) {
+                path += "&filter=" + URLEncoder.encode(filterName);
+                if(filterParams != null) {
+                    for (String filterParamKey : filterParams.keySet()) {
 
-                    Object value = filterParams.get(filterParamKey);
-                    if (!(value instanceof String)) {
-                        try {
-                            value = Manager.getObjectMapper().writeValueAsString(value);
-                        } catch (IOException e) {
-                            throw new IllegalArgumentException(e);
+                        Object value = filterParams.get(filterParamKey);
+                        if (!(value instanceof String)) {
+                            try {
+                                value = Manager.getObjectMapper().writeValueAsString(value);
+                            } catch (IOException e) {
+                                throw new IllegalArgumentException(e);
+                            }
                         }
-                    }
-                    path += "&" + URLEncoder.encode(filterParamKey) + "=" + URLEncoder.encode(value.toString());
+                        path += "&" + URLEncoder.encode(filterParamKey) + "=" + URLEncoder.encode(value.toString());
 
+                    }
                 }
             }
         }
@@ -460,6 +459,7 @@ public class ChangeTracker implements Runnable {
 
     public void setDocIDs(List<String> docIDs) {
         this.docIDs = docIDs;
+        usePOST = docIDs != null && docIDs.size() > 0;
     }
 
     public String changesFeedPOSTBody() {
@@ -469,14 +469,6 @@ public class ChangeTracker implements Runnable {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    public boolean isUsePOST() {
-        return usePOST;
-    }
-
-    public void setUsePOST(boolean usePOST) {
-        this.usePOST = usePOST;
     }
 
     public Map<String, Object> changesFeedPOSTBodyMap() {
