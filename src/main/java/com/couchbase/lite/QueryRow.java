@@ -18,17 +18,17 @@ public class QueryRow {
     /**
      * The row's key: this is the first parameter passed to the emit() call that generated the row.
      */
-    private Object key;
+    protected Object key;
 
     /**
      * The row's value: this is the second parameter passed to the emit() call that generated the row.
      */
-    private Object value;
+    protected Object value;
 
     /**
      * The database sequence number of the associated doc/revision.
      */
-    private long sequence;
+    protected long sequence;
 
     /**
      * The ID of the document that caused this view row to be emitted.
@@ -40,7 +40,7 @@ public class QueryRow {
      * In a reduced or grouped query the value will be nil, since the rows don't correspond
      * to individual documents.
      */
-    private String sourceDocumentId;
+    protected String sourceDocumentId;
 
     /**
      * The properties of the document this row was mapped from.
@@ -49,10 +49,10 @@ public class QueryRow {
      * takes a separate call to the database. So if you're doing it for every row, using
      * .prefetch and .documentProperties is faster.)
      */
-    private Map<String, Object> documentProperties;
+    protected Map<String, Object> documentProperties;
 
 
-    private Database database;
+    protected Database database;
 
     /**
      * Constructor
@@ -208,7 +208,7 @@ public class QueryRow {
      * the query result has changed enough to notify the client. So it's important that it
      * not give false positives, else the app won't get notified of changes.
      *
-     * @param o
+     * @param object
      *            the QueryRow to compare this instance with.
      * @return true if equal, false otherwise.
      */

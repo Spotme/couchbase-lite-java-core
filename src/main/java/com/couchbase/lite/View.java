@@ -483,6 +483,21 @@ public final class View {
                         // find a better way to propagate this back
                     }
                 }
+
+                @Override
+                public void emitJSON(SpecialKey key, String valueJson) {
+                    ContentValues ftsValues = new ContentValues();
+                    ftsValues.put("content", key.getText());
+                    long ftsId = database.getDatabase().insert("fulltext", null, ftsValues);
+
+                    ContentValues insertValues = new ContentValues();
+                    insertValues.put("view_id", getViewId());
+                    insertValues.put("sequence", sequence);
+                    insertValues.put("key", "");
+                    insertValues.put("value", valueJson);
+                    insertValues.put("fulltext_id", ftsId);
+                    database.getDatabase().insert("maps", null, insertValues);
+                }
             };
 
             // Now scan every revision added since the last time the view was
@@ -903,6 +918,10 @@ public final class View {
             options = new QueryOptions();
         }
 
+        if (options.getFullTextQuery() != null) {
+            return queryFullText(options);
+        }
+
         Cursor cursor = null;
         List<QueryRow> rows = new ArrayList<QueryRow>();
 
@@ -979,10 +998,65 @@ public final class View {
             }
         }
 
-        return rows;
+            return rows;
 
     }
 
+    public List<QueryRow> queryFullText(QueryOptions options) throws CouchbaseLiteException {
+//        String sql = "SELECT docs.docid, maps.sequence, maps.fulltext_id, maps.value, offsets(fulltext)";
+        String sql = "SELECT docs.docid, maps.sequence, maps.fulltext_id, maps.value, offsets(fulltext)";
+
+//        if (options->fullTextSnippets)
+//        [sql appendString: @", snippet(fulltext, '\001','\002','…')"];
+
+        sql += " FROM maps, fulltext, revs, docs "
+                + "WHERE fulltext.content MATCH ? AND maps.fulltext_id = fulltext.rowid "
+                + "AND maps.view_id = ? "
+                + "AND revs.sequence = maps.sequence AND docs.doc_id = revs.doc_id ";
+
+//        if (options->fullTextRanking)
+//        [sql appendString: @"ORDER BY - ftsrank(matchinfo(fulltext)) "];
+//        else
+//        [sql appendString: @"ORDER BY maps.sequence "];
+        sql += "ORDER BY maps.sequence ";
+
+
+        if (options.isDescending()) {
+            sql += " DESC";
+        }
+        sql += " LIMIT ? OFFSET ?";
+
+        int limit = options.getLimit();
+
+        List<QueryRow> rows = new ArrayList<QueryRow>();
+        Cursor cursor = null;
+        long result = -1;
+        try {
+            String[] args = { options.getFullTextQuery(), Integer.toString(getViewId()), Integer.toString(limit), Integer.toString(options.getSkip()) };
+            cursor = database.getDatabase().rawQuery(sql, args);
+            cursor.moveToNext();
+            while (!cursor.isAfterLast()) {
+                String docId = cursor.getString(0);
+                long sequence =  Long.valueOf(cursor.getString(1));
+                int fullTextId =  Integer.valueOf(cursor.getString(2));
+                String offsets = cursor.getString(4);
+                JsonDocument valueDoc = new JsonDocument(cursor.getBlob(3));
+
+                FullTextQueryRow row = new FullTextQueryRow(docId, sequence, fullTextId, offsets, valueDoc.jsonObject());
+                row.setDatabase(database);
+                rows.add(row);
+                cursor.moveToNext();
+
+            }
+        } catch (Exception e) {
+            Log.e(Log.TAG_VIEW, "Error getting last sequence indexed", e);
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+            return rows;
+        }
+    }
 
     /**
      * Utility function to use in reduce blocks. Totals an array of Numbers.

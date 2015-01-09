@@ -900,7 +900,7 @@ public final class Database {
     public boolean initialize(String statements) {
         try {
             for (String statement : statements.split(";")) {
-                database.execSQL(statement);
+                database.execSQL(statement.replace("|", ";"));
             }
         } catch (SQLException e) {
             close();
@@ -1069,6 +1069,20 @@ public final class Database {
             // Version 10: Add another index
             String upgradeSql = "CREATE INDEX revs_cur_deleted ON revs(current,deleted); " +
                     "PRAGMA user_version = 11";
+            if (!initialize(upgradeSql)) {
+                database.close();
+                return false;
+            }
+            dbVersion = 11;
+        }
+
+        if (dbVersion < 12) {
+            String upgradeSql = "CREATE VIRTUAL TABLE fulltext USING fts4(content, tokenize=simple); " +
+                    "ALTER TABLE maps ADD COLUMN fulltext_id INTEGER; " +
+                    "CREATE INDEX IF NOT EXISTS maps_by_fulltext ON maps(fulltext_id); " +
+                    "CREATE TRIGGER del_fulltext DELETE ON maps WHEN old.fulltext_id not null " +
+                    "BEGIN DELETE FROM fulltext WHERE rowid=old.fulltext_id| END; " +
+                    "PRAGMA user_version = 12";
             if (!initialize(upgradeSql)) {
                 database.close();
                 return false;

@@ -26,4 +26,6 @@ public interface Emitter {
 
     void emitJSON(String keyJson, String valueJson);
 
+    void emitJSON(SpecialKey key, String valueJson);
+
 }

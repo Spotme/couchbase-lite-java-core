@@ -37,6 +37,7 @@ public class QueryOptions {
     private EnumSet<TDContentOptions> contentOptions = EnumSet.noneOf(Database.TDContentOptions.class);
     private boolean descending = false;
     private boolean includeDocs = false;
+    private String fullTextQuery;
 
     private boolean updateSeq = false;
     private boolean inclusiveEnd = true;
@@ -194,4 +195,11 @@ public class QueryOptions {
         this.endKeyDocId = endKeyDocId;
     }
 
+    public String getFullTextQuery() {
+        return fullTextQuery;
+    }
+
+    public void setFullTextQuery(String fullTextQuery) {
+        this.fullTextQuery = fullTextQuery;
+    }
 }

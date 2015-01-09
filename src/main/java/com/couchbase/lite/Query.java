@@ -81,6 +81,11 @@ public class Query {
     private String endKeyDocId;
 
     /**
+     * full_text
+     */
+    private String fullText;
+
+    /**
      * If set, the view will not be updated for this query, even if the database has changed.
      * This allows faster results at the expense of returning possibly out-of-date data.
      */
@@ -180,6 +185,7 @@ public class Query {
         endKeyDocId = query.endKeyDocId;
         indexUpdateMode = query.indexUpdateMode;
         allDocsMode = query.allDocsMode;
+        fullText = query.fullText;
     }
 
     /**
@@ -259,6 +265,16 @@ public class Query {
     @InterfaceAudience.Public
     public void setEndKeyDocId(String endKeyDocId) {
         this.endKeyDocId = endKeyDocId;
+    }
+
+    @InterfaceAudience.Public
+    public String getFullText() {
+        return fullText;
+    }
+
+    @InterfaceAudience.Public
+    public void setFullText(String fullText) {
+        this.fullText = fullText;
     }
 
     @InterfaceAudience.Public
@@ -434,6 +450,7 @@ public class Query {
         queryOptions.setAllDocsMode(getAllDocsMode());
         queryOptions.setStartKeyDocId(getStartKeyDocId());
         queryOptions.setEndKeyDocId(getEndKeyDocId());
+        queryOptions.setFullTextQuery(getFullText());
         return queryOptions;
     }
 

@@ -239,7 +239,9 @@ public class Router implements Database.ChangeListener {
             if (getJSONQuery("endkey_docid") != null) {
                 options.setEndKeyDocId(getJSONQuery("endkey_docid").toString());
             }
-
+            if (getQuery("full_text") != null) {
+                options.setFullTextQuery(getQuery("full_text").toString());
+            }
         }
 
         return true;
