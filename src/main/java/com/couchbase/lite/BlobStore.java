@@ -208,7 +208,7 @@ public class BlobStore {
         } catch (FileNotFoundException e) {
             Log.e(Log.TAG_BLOB_STORE, "Error opening file for output", e);
             return false;
-        } catch(IOException ioe) {
+        } catch(Exception ioe) {
             Log.e(Log.TAG_BLOB_STORE, "Error writing to file", ioe);
             return false;
         }
