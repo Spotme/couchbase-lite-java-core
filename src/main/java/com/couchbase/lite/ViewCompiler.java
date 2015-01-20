@@ -2,6 +2,8 @@ package com.couchbase.lite;
 
 import com.couchbase.lite.internal.InterfaceAudience;
 
+import java.util.Map;
+
 /**
  * An external object that knows how to map source code of some sort into executable functions.
  */
@@ -15,7 +17,7 @@ public interface ViewCompiler {
      * @return A compiled Mapper.
      */
     @InterfaceAudience.Public
-    Mapper compileMap(String source, String language);
+    Mapper compileMap(String source, String language, Map<String, Object> ddoc);
 
     /**
      * Compiles source code into a ReduceDelegate.

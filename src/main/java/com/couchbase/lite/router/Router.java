@@ -1643,7 +1643,7 @@ public class Router implements Database.ChangeListener {
 
     /** VIEW QUERIES: **/
 
-    public View compileView(String viewName, Map<String,Object> viewProps) {
+    public View compileView(String viewName, Map<String,Object> viewProps, Map<String, Object> ddoc) {
         String language = (String)viewProps.get("language");
         if(language == null) {
             language = "javascript";
@@ -1652,7 +1652,7 @@ public class Router implements Database.ChangeListener {
         if(mapSource == null) {
             return null;
         }
-        Mapper mapBlock = View.getViewCompiler().compileMap(mapSource, language);
+        Mapper mapBlock = View.getViewCompiler().compileMap(mapSource, language, ddoc);
         if(mapBlock == null) {
             Log.w(Log.TAG_ROUTER, "View %s has unknown map function: %s", viewName, mapSource);
             return null;
@@ -1686,13 +1686,14 @@ public class Router implements Database.ChangeListener {
             if(rev == null) {
                 return new Status(Status.NOT_FOUND);
             }
-            Map<String,Object> views = (Map<String,Object>)rev.getProperties().get("views");
+            final Map<String, Object> ddoc = rev.getProperties();
+            Map<String,Object> views = (Map<String,Object>)ddoc.get("views");
             Map<String,Object> viewProps = (Map<String,Object>)views.get(viewName);
             if(viewProps == null) {
                 return new Status(Status.NOT_FOUND);
             }
             // If there is a CouchDB view, see if it can be compiled from source:
-            view = compileView(tdViewName, viewProps);
+            view = compileView(tdViewName, viewProps, ddoc);
             if(view == null) {
                 return new Status(Status.INTERNAL_SERVER_ERROR);
             }
