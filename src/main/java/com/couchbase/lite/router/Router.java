@@ -349,7 +349,7 @@ public class Router implements Database.ChangeListener {
                 }
                 else {
                     boolean mustExist = false;
-                    db = manager.getDatabaseWithoutOpening(dbName, mustExist);
+                    db = manager.getDatabaseWithoutOpening(dbName, mustExist, null);
                     if(db == null) {
                         connection.setResponseCode(Status.BAD_REQUEST);
                         try {
@@ -1608,7 +1608,7 @@ public class Router implements Database.ChangeListener {
             revID = getRevIDFromIfMatchHeader();
         }
 
-        BlobStoreWriter body = new BlobStoreWriter(db.getAttachments());
+        BlobStoreWriter body = new BlobStoreWriter(db.getAttachments(), db.getPassword());
         ByteArrayOutputStream dataStream = new ByteArrayOutputStream();
 
         try{

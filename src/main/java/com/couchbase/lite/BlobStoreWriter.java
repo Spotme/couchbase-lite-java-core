@@ -36,9 +36,11 @@ public class BlobStoreWriter {
 
     private OutputStream outStream;
     private File tempFile;
+	private String dbPass;
 
-    public BlobStoreWriter(BlobStore store) {
+    public BlobStoreWriter(BlobStore store, String dbPass) {
         this.store = store;
+		this.dbPass = dbPass;
 
         try {
             sha1Digest = MessageDigest.getInstance("SHA-1");
@@ -61,7 +63,7 @@ public class BlobStoreWriter {
         final File tempDir = store.tempDir();
 
         tempFile = new File(tempDir, filename);
-        outStream = FileEncryptionUtils.writeFile(tempFile);
+        outStream = FileEncryptionUtils.writeFile(tempFile, dbPass);
 
     }
 

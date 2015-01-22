@@ -9,6 +9,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.KeySpec;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
@@ -20,7 +22,7 @@ import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 
 public class FileEncryptionUtils {
-    private static SecretKey mKey;
+	private static Map<String, SecretKey> secretKeys = new HashMap<>();
 
     private static byte[] mSalt = new byte[] {
             (byte) 0xfa, (byte) 0x12, (byte) 0x21, (byte) 0x94,
@@ -31,10 +33,10 @@ public class FileEncryptionUtils {
 
     private static final String CIPHER = "AES/CBC/PKCS5Padding";
 
-    private static Cipher getEncryptionCipher(final File file) {
+    private static Cipher getEncryptionCipher(final String dbPass) {
         try {
             final Cipher cipher = Cipher.getInstance(CIPHER);
-            cipher.init(Cipher.ENCRYPT_MODE, mKey, new IvParameterSpec(mSalt));
+            cipher.init(Cipher.ENCRYPT_MODE, getDatabaseKey(dbPass), new IvParameterSpec(mSalt));
 
             return cipher;
         } catch (Exception e) {
@@ -43,11 +45,11 @@ public class FileEncryptionUtils {
         }
     }
 
-    private static Cipher getDecryptionCypher(final File file) {
+    private static Cipher getDecryptionCypher(final String dbPass) {
         try {
             final Cipher cipher = Cipher.getInstance(CIPHER);
             final AlgorithmParameterSpec spec = new IvParameterSpec(mSalt);
-            cipher.init(Cipher.DECRYPT_MODE, mKey, spec);
+            cipher.init(Cipher.DECRYPT_MODE, getDatabaseKey(dbPass), spec);
 
             return cipher;
         } catch (Exception e) {
@@ -56,49 +58,67 @@ public class FileEncryptionUtils {
         }
     }
 
-    public static void setKey(final String key) {
+    private static SecretKey generateKey(final String key) {
         try {
             final SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
             final KeySpec spec = new PBEKeySpec(key.toCharArray(), mSalt, 1024, 256);
 
-            mKey = new SecretKeySpec(factory.generateSecret(spec).getEncoded(), "AES");
+            return new SecretKeySpec(factory.generateSecret(spec).getEncoded(), "AES");
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            return null;
         }
     }
 
-    public static InputStream readFile(final File file) {
+	private static SecretKey getDatabaseKey(String dbPass) {
+		if (secretKeys.containsKey(dbPass)) return secretKeys.get(dbPass);
+
+		SecretKey key = generateKey(dbPass);
+		secretKeys.put(dbPass, key);
+		return key;
+	}
+
+    public static InputStream readFile(final File file, final String dbPass) {
         FileInputStream fs = null;
 
         try {
             fs = new FileInputStream(file);
 
-            return new CipherInputStream(fs, getDecryptionCypher(file));
+			if (getDatabaseKey(dbPass) == null) return fs;
+
+            return new CipherInputStream(fs, getDecryptionCypher(dbPass));
         } catch (Exception e) {
             Log.e(Database.TAG, "FileEncryptionUtils failed to write to a file", e);
             return null;
         }
     }
 
-    public static OutputStream writeFile(final File file) {
+    public static OutputStream writeFile(final File file, final String dbPass) {
         FileOutputStream fs = null;
 
         try {
             fs = new FileOutputStream(file);
 
-            return new CipherOutputStream(fs, getEncryptionCipher(file));
+			if (getDatabaseKey(dbPass) == null) return fs;
+
+            return new CipherOutputStream(fs, getEncryptionCipher(dbPass));
         } catch (Exception e) {
             Log.e(Database.TAG, "FileEncryptionUtils failed to write to a file", e);
             return null;
         }
     }
 
-    public static boolean streamToFile(final InputStream in, final File file) {
+    public static boolean streamToFile(final InputStream in, final File file, final String dbPass) {
         OutputStream out = null;
 
         try {
             final OutputStream fs = new FileOutputStream(file);
-            out = new CipherOutputStream(fs, getEncryptionCipher(file));
+
+			if (getDatabaseKey(dbPass) == null) {
+				StreamUtils.copyStream(in, fs);
+				return true;
+			}
+
+            out = new CipherOutputStream(fs, getEncryptionCipher(dbPass));
 
             StreamUtils.copyStream(in, out);
 

@@ -270,7 +270,11 @@ public final class Database {
         return manager;
     }
 
-    /**
+	public String getPassword() {
+		return password;
+	}
+
+	/**
      * The number of documents in the database.
      */
     @InterfaceAudience.Public
@@ -1091,7 +1095,7 @@ public final class Database {
 
 
         try {
-            attachments = new BlobStore(getAttachmentStorePath());
+            attachments = new BlobStore(getAttachmentStorePath(), Database.this);
         } catch (IllegalArgumentException e) {
             Log.e(Database.TAG, "Could not initialize attachment store", e);
             database.close();
@@ -1168,7 +1172,7 @@ public final class Database {
      */
     @InterfaceAudience.Private
     public BlobStoreWriter getAttachmentWriter() {
-        return new BlobStoreWriter(getAttachments());
+        return new BlobStoreWriter(getAttachments(), getPassword());
     }
 
     /**
@@ -2901,7 +2905,7 @@ public final class Database {
                 try {
                     final URL fileURL = fileForAttachmentDict(attachment);
 
-                    final InputStream is = FileEncryptionUtils.readFile(new File(fileURL.toURI()));
+                    final InputStream is = FileEncryptionUtils.readFile(new File(fileURL.toURI()), Database.this.getPassword());
                     final ByteArrayOutputStream os = new ByteArrayOutputStream();
 
                     StreamUtils.copyStream(is,os);

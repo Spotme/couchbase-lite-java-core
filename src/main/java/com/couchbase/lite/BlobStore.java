@@ -46,9 +46,11 @@ public class BlobStore {
     public static String TMP_FILE_PREFIX = "tmp";
 
     private final String storeDir;
+	private final Database db;
 
-    public BlobStore(final String dir) {
+    public BlobStore(final String dir, final Database db) {
         storeDir = dir;
+		this.db = db;
 
         final File directory = new File(storeDir);
         directory.mkdirs();
@@ -70,7 +72,7 @@ public class BlobStore {
         }
     }
 
-    public static BlobKey keyForBlobFromFile(File file) {
+    public static BlobKey keyForBlobFromFile(File file, final String dbPass) {
         InputStream is = null;
 
         try {
@@ -79,7 +81,7 @@ public class BlobStore {
             byte[] buffer = new byte[1024*4];
             int len;
 
-            is = FileEncryptionUtils.readFile(file);
+            is = FileEncryptionUtils.readFile(file, dbPass);
 
             while((len = is.read(buffer)) > 0) {
                 md.update(buffer, 0, len);
@@ -154,7 +156,7 @@ public class BlobStore {
             if (!file.exists()) throw new FileNotFoundException(file.getAbsolutePath());
             if (!file.canRead()) throw new FileNotFoundException("Cannot read from file");
 
-            return FileEncryptionUtils.readFile(file);
+            return FileEncryptionUtils.readFile(file, db.getPassword());
         } catch (FileNotFoundException f) {
             Log.e(Log.TAG_BLOB_STORE, "Unexpected file not found in blob store", f);
             return null;
@@ -167,14 +169,14 @@ public class BlobStore {
     public boolean storeBlobStream(InputStream inputStream, BlobKey outKey) {
         try {
             final File tmp = File.createTempFile(TMP_FILE_PREFIX, TMP_FILE_EXTENSION, new File(storeDir));
-            final boolean written = FileEncryptionUtils.streamToFile(inputStream, tmp);
+            final boolean written = FileEncryptionUtils.streamToFile(inputStream, tmp, db.getPassword());
 
             if (!written) {
                 Log.e(Log.TAG_BLOB_STORE, "Failed to write file");
                 return false;
             }
 
-            final BlobKey newKey = keyForBlobFromFile(tmp);
+            final BlobKey newKey = keyForBlobFromFile(tmp, db.getPassword());
             outKey.setBytes(newKey.getBytes());
 
             final String path = pathForKey(outKey);
@@ -202,7 +204,7 @@ public class BlobStore {
         if (file.canRead()) return true; // file exists
 
         try {
-            if (!FileEncryptionUtils.streamToFile(new ByteArrayInputStream(data), file)) {
+            if (!FileEncryptionUtils.streamToFile(new ByteArrayInputStream(data), file, db.getPassword())) {
                 throw new FileNotFoundException("Unable to write to file: " + file.getAbsolutePath());
             }
         } catch (FileNotFoundException e) {
@@ -289,7 +291,7 @@ public class BlobStore {
             InputStream raf = null;
 
             try {
-                raf = FileEncryptionUtils.readFile(file);
+                raf = FileEncryptionUtils.readFile(file, db.getPassword());
 
                 magic = raf.read() & 0xff | ((raf.read() << 8) & 0xff00);
             } catch (Throwable e) {

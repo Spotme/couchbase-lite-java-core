@@ -130,10 +130,6 @@ public final class Manager {
         this.databases = new ConcurrentHashMap<>();
         this.replications = new ArrayList<Replication>();
 
-        if (options.getDatabasePassword() != null) {
-            FileEncryptionUtils.setKey(options.getDatabasePassword());
-        }
-
         directoryFile.mkdirs();
         if (!directoryFile.isDirectory()) {
             throw new IOException(String.format("Unable to create directory for: %s", directoryFile));
@@ -229,7 +225,7 @@ public final class Manager {
     @InterfaceAudience.Public
     public Database getDatabase(String name) throws CouchbaseLiteException {
         boolean mustExist = false;
-        Database db = getDatabaseWithoutOpening(name, mustExist);
+        Database db = getDatabaseWithoutOpening(name, mustExist, null);
         if (db != null) {
             boolean opened = db.open();
             if (!opened) {
@@ -246,7 +242,7 @@ public final class Manager {
     @InterfaceAudience.Public
     public Database getExistingDatabase(String name) throws CouchbaseLiteException {
         boolean mustExist = true;
-        Database db = getDatabaseWithoutOpening(name, mustExist);
+        Database db = getDatabaseWithoutOpening(name, mustExist, null);
         if (db != null) {
             db.open();
         }
@@ -470,7 +466,7 @@ public final class Manager {
      * @exclude
      */
     @InterfaceAudience.Private
-    public synchronized Database getDatabaseWithoutOpening(String name, boolean mustExist) {
+    public synchronized Database getDatabaseWithoutOpening(String name, boolean mustExist, String dbPassword) {
         Database db = databases.get(name);
         if(db == null) {
             if (!isValidDatabaseName(name)) {
@@ -483,7 +479,7 @@ public final class Manager {
             if (path == null) {
                 return null;
             }
-            db = new Database(path, this, options.getDatabasePassword());
+            db = new Database(path, this, dbPassword == null ? options.getDatabasePassword() : dbPassword);
             if (mustExist && !db.exists()) {
                 Log.w(Database.TAG, "mustExist is true and db (%s) does not exist", name);
                 return null;
@@ -582,7 +578,7 @@ public final class Manager {
             remoteStr = source;
             if(createTarget && !cancel) {
                 boolean mustExist = false;
-                db = getDatabaseWithoutOpening(target, mustExist);
+                db = getDatabaseWithoutOpening(target, mustExist, null);
                 if(!db.open()) {
                     throw new CouchbaseLiteException("cannot open database: " + db, new Status(Status.INTERNAL_SERVER_ERROR));
                 }
