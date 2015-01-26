@@ -4519,7 +4519,7 @@ public final class Database {
      * @exclude
      */
     @InterfaceAudience.Private
-    protected boolean replaceUUIDs() {
+    public boolean replaceUUIDs() {
         String query = "UPDATE INFO SET value='"+ Misc.TDCreateUUID()+"' where key = 'privateUUID';";
         try {
             database.execSQL(query);
