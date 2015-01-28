@@ -1,5 +1,7 @@
 package com.couchbase.lite;
 
+import com.couchbase.lite.storage.SQLiteStorageEngineFactory;
+
 import java.io.File;
 
 /**
@@ -23,4 +25,10 @@ public interface Context {
 	 * The directory where to load shared libraries from. This may be empty.
 	 */
 	public String getLibraryDir(String libName);
+
+    /**
+     * Get the SQLiteStorageEngineFactory, or null if none has been set, in which case
+     * the default will be used.
+     */
+    public SQLiteStorageEngineFactory getSQLiteStorageEngineFactory();
 }

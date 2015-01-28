@@ -923,7 +923,9 @@ public final class Database {
         }
 
         // Create the storage engine.
-        database = SQLiteStorageEngineFactory.createStorageEngine();
+//        database = SQLiteStorageEngineFactory.createStorageEngine();
+        SQLiteStorageEngineFactory sqliteStorageEngineFactoryDefault = manager.getContext().getSQLiteStorageEngineFactory();
+        database = sqliteStorageEngineFactoryDefault.createStorageEngine();
 
         // Try to open the storage engine and stop if we fail.
         if (database == null || !database.open(path, manager.getContext(), password)) {

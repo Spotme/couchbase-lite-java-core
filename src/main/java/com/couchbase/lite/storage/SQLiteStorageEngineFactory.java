@@ -23,28 +23,8 @@ import com.couchbase.lite.util.TextUtils;
 
 import java.io.InputStream;
 
-public class SQLiteStorageEngineFactory {
+public interface SQLiteStorageEngineFactory {
 
-    public static SQLiteStorageEngine createStorageEngine() {
+    public SQLiteStorageEngine createStorageEngine();
 
-        String classname = "";
-        String resource = "services/com.couchbase.lite.storage.SQLiteStorageEngine";
-
-        InputStream inputStream = null;
-
-        try {
-            inputStream = Thread.currentThread().getContextClassLoader().getResourceAsStream(resource);
-            byte[] bytes = TextUtils.read(inputStream);
-            classname = new String(bytes);
-            Log.d(Database.TAG, "Loading storage engine: %s", classname);
-            Class clazz = Class.forName(classname);
-            SQLiteStorageEngine storageEngine = (SQLiteStorageEngine) clazz.newInstance();
-            return storageEngine;
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to load storage.  Resource: " + resource + " classname: " + classname, e);
-        } finally {
-            try { inputStream.close(); } catch (Exception e) { /** Ignore **/ }
-        }
-
-    }
 }
