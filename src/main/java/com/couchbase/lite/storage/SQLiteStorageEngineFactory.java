@@ -17,12 +17,6 @@
 package com.couchbase.lite.storage;
 
 
-import com.couchbase.lite.Database;
-import com.couchbase.lite.util.Log;
-import com.couchbase.lite.util.TextUtils;
-
-import java.io.InputStream;
-
 public interface SQLiteStorageEngineFactory {
 
     public SQLiteStorageEngine createStorageEngine();
