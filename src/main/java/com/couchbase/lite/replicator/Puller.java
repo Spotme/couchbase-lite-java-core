@@ -360,7 +360,8 @@ public final class Puller extends Replication implements ChangeTrackerClient {
         if (numRevisionsRemoved > 0) {
             Log.v(Log.TAG_SYNC, "%s: processInbox() setting changesCount to: %s", this, getChangesCount() - numRevisionsRemoved);
             // May decrease the changesCount, to account for the revisions we just found out we don’t need to get.
-            addToChangesCount(-1 * numRevisionsRemoved);
+//            addToChangesCount(-1 * numRevisionsRemoved);
+            addToCompletedChangesCount(numRevisionsRemoved);
         }
 
         if (inboxCount == 0) {
