@@ -34,6 +34,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
@@ -389,6 +390,7 @@ public final class View {
     @SuppressWarnings("unchecked")
     @InterfaceAudience.Private
     public void updateIndex() throws CouchbaseLiteException {
+        Date d1 = new Date();
         Log.v(Log.TAG_VIEW, "Re-indexing view: %s", name);
         assert (mapBlock != null);
 
@@ -630,10 +632,11 @@ public final class View {
             database.getDatabase().update("views", updateValues, "view_id=?",
                     whereArgs);
 
+            Date d2 = new Date();
             // FIXME actually count number added :)
             Log.v(Log.TAG_VIEW, "Finished re-indexing view: %s "
                     + " up to sequence %s"
-                    + " (deleted %s added ?)", name, dbMaxSequence, deleted);
+                    + " (deleted %s added ?) in %s ms", name, dbMaxSequence, deleted, (d2.getTime()-d1.getTime()));
             result.setCode(Status.OK);
 
         } catch (SQLException e) {
@@ -914,6 +917,7 @@ public final class View {
     @InterfaceAudience.Private
     public List<QueryRow> queryWithOptions(QueryOptions options) throws CouchbaseLiteException {
 
+        Date d1 = new Date();
         if (options == null) {
             options = new QueryOptions();
         }
@@ -998,7 +1002,9 @@ public final class View {
             }
         }
 
-            return rows;
+        Date d2 = new Date();
+        Log.v(Log.TAG_VIEW, "Query: %s: Returning %s rows, took %s ms", name, rows.size(), (d2.getTime()-d1.getTime()));
+        return rows;
 
     }
 
