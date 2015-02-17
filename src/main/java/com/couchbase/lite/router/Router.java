@@ -495,7 +495,7 @@ public class Router implements Database.ChangeListener {
             status = (Status)m.invoke(this, db, docID, attachmentName);
 
             Date d2 = new Date();
-            Log.e(Log.TAG_ROUTER, method + " " + connection.getURL().getPath() + "?" + connection.getURL().getQuery()   + ", took: " + (d2.getTime() - d1.getTime()) + " ms");
+            Log.i(Log.TAG_ROUTER, method + " " + connection.getURL().getPath() + "?" + connection.getURL().getQuery()   + ", took: " + (d2.getTime() - d1.getTime()) + " ms");
 
         } catch (NoSuchMethodException msme) {
             try {
