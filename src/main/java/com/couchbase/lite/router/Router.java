@@ -568,11 +568,11 @@ public class Router implements Database.ChangeListener {
         if(status.getCode() != 0) {
             connection.setResponseCode(status.getCode());
 
-            if(connection.getResponseBody() != null) {
-                ByteArrayInputStream bais = new ByteArrayInputStream(connection.getResponseBody().getJson());
-                connection.setResponseInputStream(bais);
-            } else {
-
+//            if(connection.getResponseBody() != null) {
+//                ByteArrayInputStream bais = new ByteArrayInputStream(connection.getResponseBody().getJson());
+//                connection.setResponseInputStream(bais);
+//            } else {
+            if(connection.getResponseBody() == null) {
                 try {
                     connection.getResponseOutputStream().close();
                 } catch (IOException e) {
@@ -1744,7 +1744,8 @@ public class Router implements Database.ChangeListener {
         if(options.isUpdateSeq()) {
             responseBody.put("update_seq", lastSequenceIndexed);
         }
-        connection.setResponseBody(new Body(responseBody));
+        //connection.setResponseBody(new Body(responseBody));
+        connection.setResponseObject(responseBody);
         return new Status(Status.OK);
     }
 
@@ -1789,9 +1790,12 @@ public class Router implements Database.ChangeListener {
 		compiler.setDesignDocument(designDoc);
 		compiler.setViewResult(properties);
 
-		final String listResult = compiler.list(path.get(1), headObj);
-
-		connection.setResponseBody(Body.bodyWithJSON(listResult.getBytes()));
+		final Object listResult = compiler.list(path.get(1), headObj);
+        if (listResult instanceof String) {
+            connection.setResponseBody(Body.bodyWithJSON(((String)listResult).getBytes()));
+        } else {
+            connection.setResponseObject(listResult);
+        }
 
 		return new Status(Status.OK);
 	}
@@ -1824,9 +1828,12 @@ public class Router implements Database.ChangeListener {
 		compiler.setDesignDocument(designDoc);
 		compiler.setViewResult(properties);
 
-		final String listResult = compiler.list(path.get(1), headObj);
-
-		connection.setResponseBody(Body.bodyWithJSON(listResult.getBytes()));
+        final Object listResult = compiler.list(path.get(1), headObj);
+        if (listResult instanceof String) {
+            connection.setResponseBody(Body.bodyWithJSON(((String)listResult).getBytes()));
+        } else {
+            connection.setResponseObject(listResult);
+        }
 
 		return new Status(Status.OK);
 	}

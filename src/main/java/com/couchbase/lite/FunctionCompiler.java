@@ -19,7 +19,7 @@ public interface FunctionCompiler {
 	 *
 	 * @return A JSON representation of the response
 	 */
-	public String list(final String listName, final Map<String, Object> head) throws CouchbaseLiteException;
+	public Object list(final String listName, final Map<String, Object> head) throws CouchbaseLiteException;
 
 	/**
 	 * @return A new instance of this compiler

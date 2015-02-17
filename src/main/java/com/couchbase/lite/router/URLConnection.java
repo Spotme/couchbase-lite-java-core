@@ -4,6 +4,7 @@ package com.couchbase.lite.router;
 import com.couchbase.lite.internal.Body;
 import com.couchbase.lite.util.Log;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,6 +31,7 @@ public class URLConnection extends HttpURLConnection {
     private boolean sentRequest = false;
     private ByteArrayOutputStream os;
     private Body responseBody;
+    private Object responseObject;
     private boolean chunked = false;
 
     private HashMap<String, List<String>> requestProperties = new HashMap<String, List<String>>();
@@ -170,10 +172,25 @@ public class URLConnection extends HttpURLConnection {
 
     void setResponseBody(Body responseBody) {
         this.responseBody = responseBody;
+        this.responseObject = null;
+    }
+
+    void setResponseObject(Object responseObject) {
+        this.responseObject = responseObject;
     }
 
     public Body getResponseBody() {
+        if (this.responseBody != null) return this.responseBody;
+
+        if (this.responseObject != null) {
+            this.setResponseBody(new Body((Map) this.responseObject));
+        }
+
         return this.responseBody;
+    }
+
+    public Object getResponseObject() {
+        return this.responseObject;
     }
 
     String getBaseContentType() {
@@ -229,6 +246,11 @@ public class URLConnection extends HttpURLConnection {
     }
 
     public InputStream getResponseInputStream() {
+        if (responseInputStream != null) return responseInputStream;
+
+        ByteArrayInputStream bais = new ByteArrayInputStream(this.getResponseBody().getJson());
+        this.setResponseInputStream(bais);
+
         return responseInputStream;
     }
 
