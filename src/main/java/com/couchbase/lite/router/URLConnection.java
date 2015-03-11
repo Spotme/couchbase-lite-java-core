@@ -246,10 +246,10 @@ public class URLConnection extends HttpURLConnection {
     }
 
     public InputStream getResponseInputStream() {
-        if (responseInputStream != null) return responseInputStream;
-
-        ByteArrayInputStream bais = new ByteArrayInputStream(this.getResponseBody().getJson());
-        this.setResponseInputStream(bais);
+        if (this.getResponseBody() != null && this.getResponseBody().getJson() != null) {
+            ByteArrayInputStream bais = new ByteArrayInputStream(this.getResponseBody().getJson());
+            this.setResponseInputStream(bais);
+        }
 
         return responseInputStream;
     }
