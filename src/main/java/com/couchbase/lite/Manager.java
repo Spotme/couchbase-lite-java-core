@@ -78,6 +78,7 @@ public final class Manager {
     private ScheduledExecutorService workExecutor;
     private HttpClientFactory defaultHttpClientFactory;
     private Context context;
+    private JsdsContext jsdsContext;
 
     /**
      * @exclude
@@ -681,6 +682,15 @@ public final class Manager {
         return context;
     }
 
+    @InterfaceAudience.Private
+    public JsdsContext getJsdsContext() {
+        return jsdsContext;
+    }
+
+    @InterfaceAudience.Public
+    public void setJsdsContext(JsdsContext jsdsContext) {
+        this.jsdsContext = jsdsContext;
+    }
 
 }
 

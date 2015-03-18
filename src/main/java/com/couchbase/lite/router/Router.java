@@ -10,6 +10,8 @@ import com.couchbase.lite.Database;
 import com.couchbase.lite.Database.TDContentOptions;
 import com.couchbase.lite.DocumentChange;
 import com.couchbase.lite.FunctionCompiler;
+import com.couchbase.lite.JsdsCompiler;
+import com.couchbase.lite.JsdsRunnable;
 import com.couchbase.lite.Manager;
 import com.couchbase.lite.Mapper;
 import com.couchbase.lite.Misc;
@@ -25,6 +27,7 @@ import com.couchbase.lite.auth.FacebookAuthorizer;
 import com.couchbase.lite.auth.PersonaAuthorizer;
 import com.couchbase.lite.internal.AttachmentInternal;
 import com.couchbase.lite.internal.Body;
+import com.couchbase.lite.internal.InterfaceAudience;
 import com.couchbase.lite.internal.RevisionInternal;
 import com.couchbase.lite.replicator.Replication;
 import com.couchbase.lite.storage.SQLException;
@@ -38,7 +41,9 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.Reader;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -57,7 +62,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-
 
 public class Router implements Database.ChangeListener {
 
@@ -1868,6 +1872,50 @@ public class Router implements Database.ChangeListener {
 
 		return new Status(Status.OK);
 	}
+
+    private static JsdsCompiler jsdsCompiler;
+    public Status do_POST_api(Database _db, String _docID, String _attachmentName) {
+        try {
+            jsdsCompiler = jsdsCompiler.newInstance();
+
+            String function = slurp(connection.getRequestInputStream());
+            function = function.replace("\n", "");
+
+            jsdsCompiler.runScript(function, manager.getJsdsContext(), null, new JsdsRunnable() {
+                @Override
+                public void execute(Object key, Object value) {
+                    connection.setResponseObject(value);
+                }
+            });
+
+            return new Status(Status.OK);
+        } catch (Exception e) {
+            return new Status(Status.DB_ERROR);
+        }
+
+    }
+
+    public static String slurp(final InputStream is) {
+        final char[] buffer = new char[1024];
+        final StringBuilder out = new StringBuilder();
+        try (Reader in = new InputStreamReader(is, "UTF-8")) {
+            for (;;) {
+                int rsz = in.read(buffer, 0, buffer.length);
+                if (rsz < 0)
+                    break;
+                out.append(buffer, 0, rsz);
+            }
+        }
+        catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        return out.toString();
+    }
+
+    @InterfaceAudience.Public
+    public static void setJsdsCompiler(JsdsCompiler compiler) {
+        jsdsCompiler = compiler;
+    }
 
     @Override
     public String toString() {
