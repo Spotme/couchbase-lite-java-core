@@ -1878,8 +1878,7 @@ public class Router implements Database.ChangeListener {
         try {
             jsdsCompiler = jsdsCompiler.newInstance();
 
-            String function = slurp(connection.getRequestInputStream());
-            function = function.replace("\n", "");
+            final String function = slurp(connection.getRequestInputStream());
 
             jsdsCompiler.runScript(function, manager.getJsdsContext(), null, new JsdsRunnable() {
                 @Override
