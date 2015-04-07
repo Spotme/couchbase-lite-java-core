@@ -959,9 +959,11 @@ public final class View {
                         try { // http://wiki.apache.org/couchdb/Introduction_to_CouchDB_views#Linked_documents
                             if (valueObject instanceof Map) {
                                 String linkedDocId = (String) ((Map) valueObject).get("_id");
-                                RevisionInternal linkedDoc = database.getDocumentWithIDAndRev(linkedDocId, null, EnumSet.noneOf(TDContentOptions.class));
+                                String linkedRevId = null;
+                                if (((Map) valueObject).get("_rev") != null) linkedRevId = (String) ((Map) valueObject).get("_rev");
+                                RevisionInternal linkedDoc = database.getDocumentWithIDAndRev(linkedDocId, linkedRevId, EnumSet.noneOf(TDContentOptions.class));
 
-                                if (linkedDoc == null) throw new NullPointerException("linkedDoc is null");
+                                if (linkedDoc == null) docContents = null;
                                 else docContents = linkedDoc.getProperties();
                             } else {
                                 docContents = database.documentPropertiesFromJSON(
