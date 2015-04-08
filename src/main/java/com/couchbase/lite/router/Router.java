@@ -1883,7 +1883,8 @@ public class Router implements Database.ChangeListener {
             jsdsCompiler.runScript(function, manager.getJsdsContext(), null, new JsdsRunnable() {
                 @Override
                 public void execute(Object key, Object value) {
-                    connection.setResponseObject(value);
+                    if (key != null) connection.setResponseObject(key);
+                    else connection.setResponseObject(value);
                 }
             });
 
