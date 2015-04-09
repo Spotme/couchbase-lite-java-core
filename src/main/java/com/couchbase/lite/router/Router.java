@@ -1874,21 +1874,29 @@ public class Router implements Database.ChangeListener {
 	}
 
     private static JsdsCompiler jsdsCompiler;
+    private final Object monitor = new Object();
     public Status do_POST_api(Database _db, String _docID, String _attachmentName) {
         try {
-            jsdsCompiler = jsdsCompiler.newInstance();
+            synchronized (monitor) {
+                jsdsCompiler = jsdsCompiler.newInstance();
 
-            final String function = slurp(connection.getRequestInputStream());
+                final String function = slurp(connection.getRequestInputStream());
 
-            jsdsCompiler.runScript(function, manager.getJsdsContext(), null, new JsdsRunnable() {
-                @Override
-                public void execute(Object key, Object value) {
-                    if (key != null) connection.setResponseObject(key);
-                    else connection.setResponseObject(value);
-                }
-            });
+                jsdsCompiler.runScript(function, manager.getJsdsContext(), null, new JsdsRunnable() {
+                    @Override
+                    public void execute(Object key, Object value) {
+                        synchronized (monitor) {
+                            if (key != null) connection.setResponseObject(key);
+                            else connection.setResponseObject(value);
+                            monitor.notify();
+                        }
+                    }
+                });
 
-            return new Status(Status.OK);
+                monitor.wait(30000);
+
+                return new Status(Status.OK);
+            }
         } catch (Exception e) {
             return new Status(Status.DB_ERROR);
         }
