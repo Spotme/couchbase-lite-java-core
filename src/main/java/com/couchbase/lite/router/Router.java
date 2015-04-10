@@ -1878,11 +1878,11 @@ public class Router implements Database.ChangeListener {
     public Status do_POST_api(Database _db, String _docID, String _attachmentName) {
         try {
             synchronized (monitor) {
-                jsdsCompiler = jsdsCompiler.newInstance();
+                JsdsCompiler compiler = jsdsCompiler.newInstance();
 
                 final String function = slurp(connection.getRequestInputStream());
 
-                jsdsCompiler.runScript(function, manager.getJsdsContext(), null, new JsdsRunnable() {
+                compiler.runScript(function, manager.getJsdsContext(), null, new JsdsRunnable() {
                     @Override
                     public void execute(Object key, Object value) {
                         synchronized (monitor) {
