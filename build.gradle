@@ -22,4 +22,5 @@ dependencies {
 
     compile fileTree(dir: 'libs', include: '*.jar')
 
+    compile 'org.mozilla:rhino:1.7R4'
 }

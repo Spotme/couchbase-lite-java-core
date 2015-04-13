@@ -1886,7 +1886,7 @@ public class Router implements Database.ChangeListener {
                     @Override
                     public void execute(Object key, Object value) {
                         synchronized (monitor) {
-                            if (key != null) connection.setResponseObject(key);
+                            if (key != null && !(key instanceof org.mozilla.javascript.Undefined)) connection.setResponseObject(key);
                             else connection.setResponseObject(value);
                             monitor.notify();
                         }
