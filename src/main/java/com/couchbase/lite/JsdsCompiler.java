@@ -8,6 +8,6 @@ public interface JsdsCompiler {
 
     public JsdsCompiler newInstance();
 
-    public void runScript(String source, JsdsContext jsdsContext, Object[] params, JsdsRunnable callback);
+    public void runScript(String source, JsdsContext jsdsContext, Map<String,Object> params, JsdsRunnable callback);
 
 }
