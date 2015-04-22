@@ -5,6 +5,7 @@ import com.couchbase.lite.AsyncTask;
 import com.couchbase.lite.Attachment;
 import com.couchbase.lite.BlobStoreWriter;
 import com.couchbase.lite.ChangesOptions;
+import com.couchbase.lite.CorruptedDbException;
 import com.couchbase.lite.CouchbaseLiteException;
 import com.couchbase.lite.Database;
 import com.couchbase.lite.Database.TDContentOptions;
@@ -1722,7 +1723,12 @@ public class Router implements Database.ChangeListener {
             options.setKeys(keys);
         }
 
-        view.updateIndex();
+        try {
+            view.updateIndex();
+        } catch (CorruptedDbException e) {
+            connection.setResponseCode(Status.DB_CORRUPTION);
+            return new Status(Status.DB_CORRUPTION);
+        }
 
         long lastSequenceIndexed = view.getLastSequenceIndexed();
 

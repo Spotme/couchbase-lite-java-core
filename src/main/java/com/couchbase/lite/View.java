@@ -639,6 +639,8 @@ public final class View {
                     + " (deleted %s added ?) in %s ms", name, dbMaxSequence, deleted, (d2.getTime()-d1.getTime()));
             result.setCode(Status.OK);
 
+        } catch (CorruptedDbException e) {
+            throw new CorruptedDbException(e.getMessage());
         } catch (SQLException e) {
             throw new CouchbaseLiteException(e, new Status(Status.DB_ERROR));
         } finally {
