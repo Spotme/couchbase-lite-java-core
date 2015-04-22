@@ -11,8 +11,6 @@ import com.couchbase.lite.Database;
 import com.couchbase.lite.Database.TDContentOptions;
 import com.couchbase.lite.DocumentChange;
 import com.couchbase.lite.FunctionCompiler;
-import com.couchbase.lite.JsdsCompiler;
-import com.couchbase.lite.JsdsRunnable;
 import com.couchbase.lite.Manager;
 import com.couchbase.lite.Mapper;
 import com.couchbase.lite.Misc;
@@ -1879,57 +1877,57 @@ public class Router implements Database.ChangeListener {
 		return new Status(Status.OK);
 	}
 
-    private static JsdsCompiler jsdsCompiler;
-    private final Object monitor = new Object();
-    public Status do_POST_api(Database _db, String _docID, String _attachmentName) {
-        try {
-            synchronized (monitor) {
-                JsdsCompiler compiler = jsdsCompiler.newInstance();
-
-                final String function = slurp(connection.getRequestInputStream());
-
-                compiler.runScript(function, manager.getJsdsContext(), null, new JsdsRunnable() {
-                    @Override
-                    public void execute(Object key, Object value) {
-                        synchronized (monitor) {
-                            if (key != null && !(key instanceof org.mozilla.javascript.Undefined)) connection.setResponseObject(key);
-                            else connection.setResponseObject(value);
-                            monitor.notify();
-                        }
-                    }
-                });
-
-                monitor.wait(30000);
-
-                return new Status(Status.OK);
-            }
-        } catch (Exception e) {
-            return new Status(Status.DB_ERROR);
-        }
-
-    }
-
-    public static String slurp(final InputStream is) {
-        final char[] buffer = new char[1024];
-        final StringBuilder out = new StringBuilder();
-        try (Reader in = new InputStreamReader(is, "UTF-8")) {
-            for (;;) {
-                int rsz = in.read(buffer, 0, buffer.length);
-                if (rsz < 0)
-                    break;
-                out.append(buffer, 0, rsz);
-            }
-        }
-        catch (Exception ex) {
-            ex.printStackTrace();
-        }
-        return out.toString();
-    }
-
-    @InterfaceAudience.Public
-    public static void setJsdsCompiler(JsdsCompiler compiler) {
-        jsdsCompiler = compiler;
-    }
+//    private static JsdsCompiler jsdsCompiler;
+//    private final Object monitor = new Object();
+//    public Status do_POST_api(Database _db, String _docID, String _attachmentName) {
+//        try {
+//            synchronized (monitor) {
+//                JsdsCompiler compiler = jsdsCompiler.newInstance();
+//
+//                final String function = slurp(connection.getRequestInputStream());
+//
+//                compiler.runScript(function, manager.getJsdsContext(), null, new JsdsRunnable() {
+//                    @Override
+//                    public void execute(Object key, Object value) {
+//                        synchronized (monitor) {
+//                            if (key != null && !(key instanceof org.mozilla.javascript.Undefined)) connection.setResponseObject(key);
+//                            else connection.setResponseObject(value);
+//                            monitor.notify();
+//                        }
+//                    }
+//                });
+//
+//                monitor.wait(30000);
+//
+//                return new Status(Status.OK);
+//            }
+//        } catch (Exception e) {
+//            return new Status(Status.DB_ERROR);
+//        }
+//
+//    }
+//
+//    public static String slurp(final InputStream is) {
+//        final char[] buffer = new char[1024];
+//        final StringBuilder out = new StringBuilder();
+//        try (Reader in = new InputStreamReader(is, "UTF-8")) {
+//            for (;;) {
+//                int rsz = in.read(buffer, 0, buffer.length);
+//                if (rsz < 0)
+//                    break;
+//                out.append(buffer, 0, rsz);
+//            }
+//        }
+//        catch (Exception ex) {
+//            ex.printStackTrace();
+//        }
+//        return out.toString();
+//    }
+//
+//    @InterfaceAudience.Public
+//    public static void setJsdsCompiler(JsdsCompiler compiler) {
+//        jsdsCompiler = compiler;
+//    }
 
     @Override
     public String toString() {
