@@ -4252,18 +4252,27 @@ public final class Database {
         boolean success = false;
         beginTransaction();
         try {
-            // First look up all locally-known revisions of this document:
+            // First look up the document's row-id and all locally-known revisions of it:
+            Map<String, RevisionInternal> localRevs = null;
+            boolean isNewDoc = (historyCount == 1);
             long docNumericID = getOrInsertDocNumericID(docId);
-            RevisionList localRevs = getAllRevisionsOfDocumentID(docId, docNumericID, false);
-            if(localRevs == null) {
-                throw new CouchbaseLiteException(Status.INTERNAL_SERVER_ERROR);
+
+            if (!isNewDoc) {
+                RevisionList localRevsList = getAllRevisionsOfDocumentID(docId, docNumericID, false);
+                if (localRevsList == null) {
+                    throw new CouchbaseLiteException(Status.INTERNAL_SERVER_ERROR);
+                }
+                localRevs = new HashMap<String, RevisionInternal>();
+                for (RevisionInternal r : localRevsList) {
+                    localRevs.put(r.getRevId(), r);
+                }
             }
 
             // Validate against the latest common ancestor:
             if(validations != null && validations.size() > 0) {
                 RevisionInternal oldRev = null;
                 for (int i = 1; i < historyCount; i++) {
-                    oldRev = localRevs.revWithDocIdAndRevId(docId, revHistory.get(i));
+                    oldRev = (localRevs != null) ? localRevs.get(revHistory.get(i)) : null;
                     if (oldRev != null) {
                         break;
                     }
@@ -4288,16 +4297,14 @@ public final class Database {
             // in the local history:
             long sequence = 0;
             long localParentSequence = 0;
-            String localParentRevID = null;
             for(int i = revHistory.size() - 1; i >= 0; --i) {
                 revId = revHistory.get(i);
-                RevisionInternal localRev = localRevs.revWithDocIdAndRevId(docId, revId);
-                if(localRev != null) {
+                RevisionInternal localRev = (localRevs != null) ? localRevs.get(revId) : null;
+                if (localRev != null) {
                     // This revision is known locally. Remember its sequence as the parent of the next one:
                     sequence = localRev.getSequence();
                     assert(sequence > 0);
                     localParentSequence = sequence;
-                    localParentRevID = revId;
                 }
                 else {
                     // This revision isn't known, so add it:
@@ -4315,10 +4322,6 @@ public final class Database {
                                throw new CouchbaseLiteException(Status.BAD_REQUEST);
                            }
                        }
-                       Object obj = rev.getObject("fp_type");
-                       if (obj != null && obj instanceof String)
-                           docType = (String) obj;
-
                        current = true;
                     }
                     else {
@@ -4350,7 +4353,6 @@ public final class Database {
             if(localParentSequence > 0 && localParentSequence != sequence) {
                 ContentValues args = new ContentValues();
                 args.put("current", 0);
-                args.put("doc_type", (String) null);
                 String[] whereArgs = { Long.toString(localParentSequence) };
                 int numRowsChanged = 0;
                 try {
