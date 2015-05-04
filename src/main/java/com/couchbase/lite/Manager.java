@@ -77,7 +77,6 @@ public final class Manager {
     private ScheduledExecutorService workExecutor;
     private HttpClientFactory defaultHttpClientFactory;
     private Context context;
-    private AppScriptsContext appScriptsContext;
 
     /**
      * @exclude
@@ -679,16 +678,6 @@ public final class Manager {
     @InterfaceAudience.Private
     public Context getContext() {
         return context;
-    }
-
-    @InterfaceAudience.Private
-    public AppScriptsContext getAppScriptsContext() {
-        return appScriptsContext;
-    }
-
-    @InterfaceAudience.Public
-    public void setAppScriptsContext(AppScriptsContext appScriptsContext) {
-        this.appScriptsContext = appScriptsContext;
     }
 
 }

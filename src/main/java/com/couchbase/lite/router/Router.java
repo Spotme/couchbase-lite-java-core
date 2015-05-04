@@ -1882,7 +1882,7 @@ public class Router implements Database.ChangeListener {
 
                 final String function = slurp(connection.getRequestInputStream());
 
-                compiler.runScript(function, manager.getAppScriptsContext(), null, new AppScriptsRunnable() {
+                compiler.runScript(function, null, new AppScriptsRunnable() {
                     @Override
                     public void execute(Object key, Object value) {
                         synchronized (monitor) {
