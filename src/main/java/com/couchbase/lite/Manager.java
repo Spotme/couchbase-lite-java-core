@@ -10,7 +10,6 @@ import com.couchbase.lite.replicator.Replication;
 import com.couchbase.lite.support.FileDirUtils;
 import com.couchbase.lite.support.HttpClientFactory;
 import com.couchbase.lite.support.Version;
-import com.couchbase.lite.util.FileEncryptionUtils;
 import com.couchbase.lite.util.Log;
 import com.couchbase.lite.util.StreamUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -78,7 +77,7 @@ public final class Manager {
     private ScheduledExecutorService workExecutor;
     private HttpClientFactory defaultHttpClientFactory;
     private Context context;
-    private JsdsContext jsdsContext;
+    private AppScriptsContext appScriptsContext;
 
     /**
      * @exclude
@@ -683,13 +682,13 @@ public final class Manager {
     }
 
     @InterfaceAudience.Private
-    public JsdsContext getJsdsContext() {
-        return jsdsContext;
+    public AppScriptsContext getAppScriptsContext() {
+        return appScriptsContext;
     }
 
     @InterfaceAudience.Public
-    public void setJsdsContext(JsdsContext jsdsContext) {
-        this.jsdsContext = jsdsContext;
+    public void setAppScriptsContext(AppScriptsContext appScriptsContext) {
+        this.appScriptsContext = appScriptsContext;
     }
 
 }

@@ -1,6 +1,8 @@
 package com.couchbase.lite.router;
 
 
+import com.couchbase.lite.AppScriptsCompiler;
+import com.couchbase.lite.AppScriptsRunnable;
 import com.couchbase.lite.AsyncTask;
 import com.couchbase.lite.Attachment;
 import com.couchbase.lite.BlobStoreWriter;
@@ -10,8 +12,6 @@ import com.couchbase.lite.Database;
 import com.couchbase.lite.Database.TDContentOptions;
 import com.couchbase.lite.DocumentChange;
 import com.couchbase.lite.FunctionCompiler;
-import com.couchbase.lite.JsdsCompiler;
-import com.couchbase.lite.JsdsRunnable;
 import com.couchbase.lite.Manager;
 import com.couchbase.lite.Mapper;
 import com.couchbase.lite.Misc;
@@ -1873,16 +1873,16 @@ public class Router implements Database.ChangeListener {
 		return new Status(Status.OK);
 	}
 
-    private static JsdsCompiler jsdsCompiler;
+    private static AppScriptsCompiler appScriptsCompiler;
     private final Object monitor = new Object();
     public Status do_POST_api(Database _db, String _docID, String _attachmentName) {
         try {
             synchronized (monitor) {
-                JsdsCompiler compiler = jsdsCompiler.newInstance();
+                AppScriptsCompiler compiler = appScriptsCompiler.newInstance();
 
                 final String function = slurp(connection.getRequestInputStream());
 
-                compiler.runScript(function, manager.getJsdsContext(), null, new JsdsRunnable() {
+                compiler.runScript(function, manager.getAppScriptsContext(), null, new AppScriptsRunnable() {
                     @Override
                     public void execute(Object key, Object value) {
                         synchronized (monitor) {
@@ -1921,8 +1921,8 @@ public class Router implements Database.ChangeListener {
     }
 
     @InterfaceAudience.Public
-    public static void setJsdsCompiler(JsdsCompiler compiler) {
-        jsdsCompiler = compiler;
+    public static void setAppScriptsCompiler(AppScriptsCompiler compiler) {
+        appScriptsCompiler = compiler;
     }
 
     @Override

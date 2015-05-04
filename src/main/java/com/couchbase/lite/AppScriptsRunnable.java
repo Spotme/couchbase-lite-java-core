@@ -1,6 +1,6 @@
 package com.couchbase.lite;
 
-public interface JsdsRunnable {
+public interface AppScriptsRunnable {
 
     public void execute(Object key, Object value);
 
