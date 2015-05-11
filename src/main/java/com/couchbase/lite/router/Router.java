@@ -1,7 +1,7 @@
 package com.couchbase.lite.router;
 
 
-import com.couchbase.lite.AppScriptsCompiler;
+import com.couchbase.lite.AppScriptsExecutor;
 import com.couchbase.lite.AppScriptsRunnable;
 import com.couchbase.lite.AsyncTask;
 import com.couchbase.lite.Attachment;
@@ -44,6 +44,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.Reader;
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -56,6 +57,7 @@ import java.util.Date;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -75,6 +77,9 @@ public class Router implements Database.ChangeListener {
     private boolean waiting = false;
     private ReplicationFilter changesFilter;
     private boolean longpoll = false;
+
+    private static AppScriptsExecutor appScriptsExecutor;
+    private final Object appScriptsMonitor = new Object();
 
     public static String getVersionString() {
         return Version.getVersion();
@@ -1873,56 +1878,193 @@ public class Router implements Database.ChangeListener {
 		return new Status(Status.OK);
 	}
 
-    private static AppScriptsCompiler appScriptsCompiler;
-    private final Object monitor = new Object();
     public Status do_POST_api(Database _db, String _docID, String _attachmentName) {
+        return api("POST");
+    }
+
+    public Status do_GET_api(Database _db, String _docID, String _attachmentName) {
+        return api("GET");
+    }
+
+    /**
+     * api to execute appscripts
+     * @param method
+     * @return
+     */
+    private Status api(final String method) {
+        String url = connection.getURL().toString();
+        if (!url.endsWith("/")) url += "/";
+
+        if (url.split("_api/").length < 2) {
+            setErrorResponse("Unable to find api version");
+            return new Status(Status.UNKNOWN);
+        }
+
+        final AppScriptsExecutor compiler = appScriptsExecutor.newInstance();
+
+        final String[] elements = url.split("_api/")[1].split("/");
+        final String apiVersion = elements[0];
+
+        String function = "";
+        Map<String, Object> params = new HashMap<>();
+
+        if ("v1".equals(apiVersion)) {
+            if (elements.length < 3) {
+                setErrorResponse("Event id has to be provided");
+                return new Status(Status.UNKNOWN);
+            }
+
+            final String eid = elements[2];
+            if (!appScriptsExecutor.getActiveEvent().equals(eid)) {
+                setErrorResponse("Event not activated");
+                return new Status(Status.UNKNOWN);
+            }
+
+            if (elements.length < 4) {
+                setErrorResponse("action has to be provided (appscripts?)");
+                return new Status(Status.UNKNOWN);
+            }
+            String action = elements[3];
+            if (action.contains("?")) action = action.split("\\?")[0];
+            switch (action) {
+                case "appscripts":
+                    if (elements.length == 4) {
+                        final String paramsString = connection.getURL().getQuery();
+                        function = slurp(connection.getRequestInputStream());
+                        try {
+                            if (paramsString != null) params = splitQuery(paramsString);
+                        } catch (UnsupportedEncodingException e) {
+                            e.printStackTrace();
+                        }
+
+                    } else {
+                        //take the function from the input stream (debug mode)
+                        final String scriptPath = url.split("appscripts/")[1].split("\\?")[0];
+                        final Map<String, Object> scripts = compiler.allScripts();
+                        function = getScript(scriptPath, scripts);
+
+                        if ("POST".equals(method)) {
+                            try {
+                                params = Manager.getObjectMapper().readValue(connection.getRequestInputStream(), Map.class);
+                                params = (Map<String, Object>) params.get("params");
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        } else {
+                            final String paramsString = connection.getURL().getQuery();
+                            try {
+                                if (paramsString != null) params = splitQuery(paramsString);
+                            } catch (UnsupportedEncodingException e) {
+                                e.printStackTrace();
+                            }
+                        }
+
+                    }
+
+                    break;
+
+                default:
+                    setErrorResponse("Unknown action");
+                    return new Status(Status.UNKNOWN);
+            }
+        }
+
         try {
-            synchronized (monitor) {
-                AppScriptsCompiler compiler = appScriptsCompiler.newInstance();
-
-                final String function = slurp(connection.getRequestInputStream());
-
-                compiler.runScript(function, null, new AppScriptsRunnable() {
+            synchronized (appScriptsMonitor) {
+                compiler.runScript(function, params, new AppScriptsRunnable() {
                     @Override
                     public void execute(Object key, Object value) {
-                        synchronized (monitor) {
+                        synchronized (appScriptsMonitor) {
                             if (key != null && !(key instanceof org.mozilla.javascript.Undefined)) connection.setResponseObject(key);
                             else connection.setResponseObject(value);
-                            monitor.notify();
+                            appScriptsMonitor.notify();
                         }
                     }
                 });
 
-                monitor.wait(30000);
+                appScriptsMonitor.wait(30000);
 
                 return new Status(Status.OK);
             }
         } catch (Exception e) {
             return new Status(Status.DB_ERROR);
         }
-
     }
 
-    public static String slurp(final InputStream is) {
-        final char[] buffer = new char[1024];
-        final StringBuilder out = new StringBuilder();
-        try (Reader in = new InputStreamReader(is, "UTF-8")) {
-            for (;;) {
-                int rsz = in.read(buffer, 0, buffer.length);
-                if (rsz < 0)
-                    break;
-                out.append(buffer, 0, rsz);
-            }
+    /**
+     * Converts query params to map
+     * @param url
+     * @return
+     * @throws UnsupportedEncodingException
+     */
+    public static Map<String, Object> splitQuery(String url) throws UnsupportedEncodingException {
+        final Map<String, Object> queryPairs = new LinkedHashMap<>();
+        final String[] pairs = url.split("&");
+        for (String pair : pairs) {
+            int idx = pair.indexOf("=");
+            queryPairs.put(URLDecoder.decode(pair.substring(0, idx), "UTF-8"), URLDecoder.decode(pair.substring(idx + 1), "UTF-8"));
         }
-        catch (Exception ex) {
-            ex.printStackTrace();
+        return queryPairs;
+    }
+
+    /**
+     * Converts inputstream to string
+     * @param is
+     * @return
+     */
+    private static String slurp(final InputStream is) {
+        byte[] bytes = new byte[1000];
+
+        StringBuilder out = new StringBuilder();
+
+        int numRead = 0;
+        try {
+            while ((numRead = is.read(bytes)) >= 0) {
+                out.append(new String(bytes, 0, numRead));
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
         return out.toString();
     }
 
+    /**
+     * get the script in the appscript doc according to a path
+     * @param path
+     * @param scripts
+     * @return
+     */
+    private String getScript(String path, Map<String, Object> scripts) {
+        try {
+            final String[] parts = path.split("/");
+
+            Object currentObject = scripts;
+            for (final String part : parts) {
+                currentObject = ((Map<String, Object>) currentObject).get(part);
+            }
+
+            return (String) currentObject;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    /**
+     * set an error response
+     * @param message
+     */
+    private void setErrorResponse(final String message) {
+        Log.e(Log.TAG_ROUTER, message);
+        Map<String, Object> result = new HashMap<>();
+        result.put("error", "not_found");
+        result.put("reason", message);
+        connection.setResponseBody(new Body(result));
+    }
+
     @InterfaceAudience.Public
-    public static void setAppScriptsCompiler(AppScriptsCompiler compiler) {
-        appScriptsCompiler = compiler;
+    public static void setAppScriptsExecutor(AppScriptsExecutor compiler) {
+        appScriptsExecutor = compiler;
     }
 
     @Override
