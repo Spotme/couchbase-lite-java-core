@@ -1967,6 +1967,9 @@ public class Router implements Database.ChangeListener {
                     setErrorResponse("Unknown action");
                     return new Status(Status.UNKNOWN);
             }
+        } else {
+            setErrorResponse("Unable to find api version");
+            return new Status(Status.UNKNOWN);
         }
 
         try {
