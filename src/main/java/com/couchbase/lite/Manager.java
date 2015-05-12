@@ -492,8 +492,8 @@ public final class Manager {
     /**
      * @exclude
      */
-    @InterfaceAudience.Private
-    /* package */ void forgetDatabase(Database db) {
+    @InterfaceAudience.Public
+    public void forgetDatabase(Database db) {
 
         // remove from cached list of dbs
         databases.remove(db.getName());
