@@ -563,14 +563,14 @@ public class Router implements Database.ChangeListener {
         }
 
         // Check for a mismatch between the Accept request header and the response type:
-//        String accept = connection.getRequestProperty("Accept");
-//        if(accept != null && !"*/*".equals(accept)) {
-//            String responseType = connection.getBaseContentType();
-//            if(responseType != null && accept.indexOf(responseType) < 0) {
-//                Log.e(Log.TAG_ROUTER, "Error 406: Can't satisfy request Accept: %s", accept);
-//                status = new Status(Status.NOT_ACCEPTABLE);
-//            }
-//        }
+        String accept = connection.getRequestProperty("Accept");
+        if(accept != null && !accept.contains("*/*")) {
+            String responseType = connection.getBaseContentType();
+            if(responseType != null && accept.indexOf(responseType) < 0) {
+                Log.e(Log.TAG_ROUTER, "Error 406: Can't satisfy request Accept: %s", accept);
+                status = new Status(Status.NOT_ACCEPTABLE);
+            }
+        }
 
         connection.getResHeader().add("Server", String.format("Couchbase Lite %s", getVersionString()));
 
