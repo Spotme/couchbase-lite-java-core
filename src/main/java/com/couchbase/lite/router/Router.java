@@ -42,9 +42,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.Reader;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
@@ -1941,7 +1939,7 @@ public class Router implements Database.ChangeListener {
                     } else {
                         //take the function from the input stream (debug mode)
                         final String scriptPath = url.split("appscripts/")[1].split("\\?")[0];
-                        final Map<String, Object> scripts = compiler.allScripts();
+                        final Map<String, Object> scripts = compiler.allAppScripts();
                         function = getScript(scriptPath, scripts);
 
                         if ("POST".equals(method)) {

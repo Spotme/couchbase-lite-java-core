@@ -8,7 +8,7 @@ public interface AppScriptsExecutor {
 
     void runScript(String source, Map<String,Object> params, AppScriptsRunnable callback);
 
-    Map<String, Object> allScripts();
+    Map<String, Object> allAppScripts();
 
     String getActiveEvent();
 
