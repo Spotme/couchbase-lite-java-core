@@ -36,6 +36,7 @@ import com.couchbase.lite.util.Log;
 import com.couchbase.lite.util.StreamUtils;
 
 import org.apache.http.client.HttpResponseException;
+import org.mozilla.javascript.NativeArray;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -1979,7 +1980,13 @@ public class Router implements Database.ChangeListener {
                     public void execute(Object key, Object value) {
                         synchronized (appScriptsMonitor) {
                             if (key != null && !(key instanceof org.mozilla.javascript.Undefined)) connection.setResponseObject(key);
-                            else connection.setResponseObject(value);
+                            else {
+                                if (value instanceof NativeArray) {
+                                    connection.setResponseBody(new Body((List)value));
+                                } else {
+                                    connection.setResponseObject(value);
+                                }
+                            }
                             appScriptsMonitor.notify();
                         }
                     }
