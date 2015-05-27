@@ -183,7 +183,9 @@ public class URLConnection extends HttpURLConnection {
         if (this.responseBody != null) return this.responseBody;
 
         if (this.responseObject != null) {
-            this.setResponseBody(new Body((Map) this.responseObject));
+            if (responseObject instanceof Map) { // done() from AS returns in Undefined here
+                this.setResponseBody(new Body((Map) this.responseObject));
+            }
         }
 
         return this.responseBody;
