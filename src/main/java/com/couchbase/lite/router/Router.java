@@ -1975,14 +1975,14 @@ public class Router implements Database.ChangeListener {
             synchronized (appScriptsMonitor) {
                 compiler.runScript(function, params, new AppScriptsRunnable() {
                     @Override
-                    public void execute(Object key, Object value) {
+                    public void done(Object error, Object result) {
                         synchronized (appScriptsMonitor) {
-                            if (key != null && !(key instanceof org.mozilla.javascript.Undefined)) connection.setResponseObject(key);
+                            if (error != null && !(error instanceof org.mozilla.javascript.Undefined)) connection.setResponseObject(error);
                             else {
-                                if (value instanceof NativeArray) {
-                                    connection.setResponseBody(new Body((List)value));
+                                if (result instanceof NativeArray) {
+                                    connection.setResponseBody(new Body((List)result));
                                 } else {
-                                    connection.setResponseObject(value);
+                                    connection.setResponseObject(result);
                                 }
                             }
                             appScriptsMonitor.notify();
