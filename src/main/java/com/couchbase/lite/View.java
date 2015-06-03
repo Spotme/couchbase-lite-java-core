@@ -339,6 +339,66 @@ public final class View {
     }
 
     /**
+     * in CBLView.m
+     * - (NSUInteger) totalRows
+     */
+    @InterfaceAudience.Private
+    public int getTotalRows(){
+
+        int totalRows = -1;
+        String sql = "SELECT total_docs FROM views WHERE view_id=?";
+        String[] args = { String.valueOf(viewId) };
+        Cursor cursor = null;
+        try {
+            cursor = database.getDatabase().rawQuery(sql, args);
+            if (cursor.moveToNext()) {
+                totalRows = cursor.getInt(0);
+            }
+        } catch (SQLException e) {
+            Log.e(Log.TAG_VIEW, "Error getting total_docs", e);
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+
+        // need to count & update rows
+        if(totalRows < 0){
+            totalRows = countTotalRows();
+            if(totalRows >= 0){
+                updateTotalRows(totalRows);
+            }
+        }
+        return totalRows;
+    }
+
+    private int countTotalRows(){
+        int totalRows = -1;
+        String sql = "SELECT COUNT(view_id) FROM maps WHERE view_id=?";
+        String[] args = { String.valueOf(viewId) };
+        Cursor cursor = null;
+        try {
+            cursor = database.getDatabase().rawQuery(sql, args);
+            if (cursor.moveToNext()) {
+                totalRows = cursor.getInt(0);
+            }
+        } catch (SQLException e) {
+            Log.e(Log.TAG_VIEW, "Error getting total_docs", e);
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+        return totalRows;
+    }
+
+    private void updateTotalRows(int totalRows){
+        ContentValues values = new ContentValues();
+        values.put("total_docs=", totalRows);
+        database.getDatabase().update("views", values, "view_id=?", new String[]{ String.valueOf(viewId) });
+    }
+
+    /**
      * @exclude
      */
     @InterfaceAudience.Private
@@ -436,7 +496,7 @@ public final class View {
                 database.getDatabase().execSQL(
                         "DELETE FROM maps WHERE view_id=? AND sequence IN ("
                                 + "SELECT parent FROM revs WHERE sequence>? "
-                                + "AND parent>0 AND parent<=?)", args);
+                                + "AND +parent>0 AND +parent<=?)", args);
             }
 
             int deleted = 0;
@@ -628,6 +688,7 @@ public final class View {
             // indexed:
             ContentValues updateValues = new ContentValues();
             updateValues.put("lastSequence", dbMaxSequence);
+            updateValues.put("total_docs", countTotalRows());
             String[] whereArgs = { Integer.toString(getViewId()) };
             database.getDatabase().update("views", updateValues, "view_id=?",
                     whereArgs);

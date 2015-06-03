@@ -1094,6 +1094,68 @@ public final class Database {
             }
         }
 
+        if (dbVersion < 13) {
+            // Version 13: Add rows to track number of rows in the views
+            String upgradeSql =  "ALTER TABLE views ADD COLUMN total_docs INTEGER DEFAULT -1; " +
+                    "PRAGMA user_version = 13";
+            if (!initialize(upgradeSql)) {
+                database.close();
+                return false;
+            }
+            dbVersion = 13;
+        }
+
+        if (dbVersion < 14) {
+            // Version 14: Add index for getting a document with doc and rev id
+            String upgradeSql =  "CREATE INDEX IF NOT EXISTS revs_by_docid_revid ON revs(doc_id, revid desc, current, deleted); " +
+                    "PRAGMA user_version = 14";
+            if (!initialize(upgradeSql)) {
+                database.close();
+                return false;
+            }
+            dbVersion = 14;
+        }
+
+        if (dbVersion < 15) {
+            // Version 15: Add sequence index on maps and attachments for revs(sequence) on DELETE CASCADE
+            String upgradeSql =  "CREATE INDEX maps_sequence ON maps(sequence); " +
+                    "CREATE INDEX attachments_sequence ON attachments(sequence); " +
+                    "PRAGMA user_version = 15";
+            if (!initialize(upgradeSql)) {
+                database.close();
+                return false;
+            }
+            dbVersion = 15;
+        }
+
+
+        if (dbVersion < 16) {
+            // Version 16: Fix the very suboptimal index revs_cur_deleted.
+            // The new revs_current is an optimal index for finding the winning revision of a doc.
+            String upgradeSql =  "DROP INDEX IF EXISTS revs_current; " +
+                    "DROP INDEX IF EXISTS revs_cur_deleted; " +
+                    "CREATE INDEX revs_current ON revs(doc_id, current desc, deleted, revid desc);" +
+                    "PRAGMA user_version = 16";
+
+            if (!initialize(upgradeSql)) {
+                database.close();
+                return false;
+            }
+            dbVersion = 16;
+        }
+
+        if (dbVersion < 17) {
+            // Version 17: https://github.com/couchbase/couchbase-lite-ios/issues/615
+            String upgradeSql = "CREATE INDEX maps_view_sequence ON maps(view_id, sequence); " +
+                    "PRAGMA user_version = 17";
+
+            if (!initialize(upgradeSql)) {
+                database.close();
+                return false;
+            }
+            dbVersion = 17;
+        }
+
 
         try {
             attachments = new BlobStore(getAttachmentStorePath(), Database.this);
