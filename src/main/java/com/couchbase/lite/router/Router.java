@@ -1978,20 +1978,24 @@ public class Router implements Database.ChangeListener {
 
                     @Override
                     protected void onSuccessResult(Object resultObj) {
-                        if (resultObj instanceof NativeArray) {
-                            connection.setResponseBody(new Body((List) resultObj));
-                        } else {
-                            connection.setResponseObject(resultObj);
+                        synchronized (appScriptsMonitor) {
+                            if (resultObj instanceof NativeArray) {
+                                connection.setResponseBody(new Body((List) resultObj));
+                            } else {
+                                connection.setResponseObject(resultObj);
+                            }
+                            appScriptsMonitor.notify();
                         }
-                        appScriptsMonitor.notify();
                     }
 
                     @Override
                     public void onErrorResult(Object errorObj) {
-                        Log.w(Log.TAG_ROUTER, "Request to .../_api/... returned with error: " + errorObj);
+                        synchronized (appScriptsMonitor) {
+                            Log.w(Log.TAG_ROUTER, "Request to .../_api/... returned with error: " + errorObj);
 
-                        connection.setResponseObject(errorObj);
-                        appScriptsMonitor.notify();
+                            connection.setResponseObject(errorObj);
+                            appScriptsMonitor.notify();
+                        }
                     }
 
                 });
