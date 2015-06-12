@@ -1,8 +1,8 @@
 package com.couchbase.lite.router;
 
 
-import com.couchbase.lite.AppScriptsExecutor;
-import com.couchbase.lite.AppScriptsRunnable;
+import com.couchbase.lite.appscripts.OnScriptExecutedCallBack;
+import com.couchbase.lite.appscripts.AppScriptsExecutor;
 import com.couchbase.lite.AsyncTask;
 import com.couchbase.lite.Attachment;
 import com.couchbase.lite.BlobStoreWriter;
@@ -1973,9 +1973,9 @@ public class Router implements Database.ChangeListener {
 
         try {
             synchronized (appScriptsMonitor) {
-                compiler.runScript(function, params, new AppScriptsRunnable() {
+                compiler.runScript(function, params, new OnScriptExecutedCallBack() {
                     @Override
-                    public void done(Object error, Object result) {
+                    public void onDone(Object error, Object result) {
                         synchronized (appScriptsMonitor) {
                             if (error != null && !(error instanceof org.mozilla.javascript.Undefined)) connection.setResponseObject(error);
                             else {
