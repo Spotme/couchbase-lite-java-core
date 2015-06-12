@@ -1,20 +1,20 @@
 package com.couchbase.lite.appscripts;
 
-import sun.org.mozilla.javascript.internal.Undefined;
+import org.mozilla.javascript.Undefined;
 
 /**
  * Call-back, that is called when corespondent call-back function is called in JS script.
  * Usually corespondent call-back function is named done() and is last param in JS script function.
  */
 public abstract class OnScriptExecutedCallBack {
-    final ThreadToRunCallBack threadToRunCallBack;
+    final ThreadToRun threadToRun;
 
-    public OnScriptExecutedCallBack(ThreadToRunCallBack threadToRunCallBack) {
-        this.threadToRunCallBack = threadToRunCallBack;
+    public OnScriptExecutedCallBack(ThreadToRun threadToRun) {
+        this.threadToRun = threadToRun;
     }
 
     public OnScriptExecutedCallBack() {
-        threadToRunCallBack = ThreadToRunCallBack.DEFAULT;
+        threadToRun = ThreadToRun.DEFAULT;
     }
 
     /**
@@ -29,7 +29,7 @@ public abstract class OnScriptExecutedCallBack {
      * @param callBackData data passed to "done()" bu JS script.
      */
     public final void onDone(Object[] callBackData) {
-        if (callBackData.length > 0 && callBackData[0] != Undefined.instance) {
+        if (callBackData.length > 0 && callBackData[0] != null && callBackData[0] != Undefined.instance) {
             final Object error = callBackData[0];
             onErrorResult(error);
         } else {
@@ -59,16 +59,19 @@ public abstract class OnScriptExecutedCallBack {
      *
      * @param errorObj error passed to "done()" by JS script
      */
-    protected abstract void onErrorResult(Object errorObj);
+    public abstract void onErrorResult(Object errorObj);
 
     /**
      * @return callers should call {@link #onDone(Object[]) method} on thread, returned by this method.
      */
-    public ThreadToRunCallBack getThreadToRunCallBack() {
-        return threadToRunCallBack;
+    public ThreadToRun getThreadToRun() {
+        return threadToRun;
     }
 
-    static public enum ThreadToRunCallBack {
+    /**
+     * Thread to run correspondent {@link OnScriptExecutedCallBack} on.
+     */
+    static public enum ThreadToRun {
         DEFAULT, //thread, where JS called "done()" call-back. Either "event loop" or one of "AppScriptsWorkers" threads
         UI
     }
