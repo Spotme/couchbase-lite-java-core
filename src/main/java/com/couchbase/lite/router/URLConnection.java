@@ -183,8 +183,10 @@ public class URLConnection extends HttpURLConnection {
         if (this.responseBody != null) return this.responseBody;
 
         if (this.responseObject != null) {
-            if (responseObject instanceof Map) { // done() from AS returns in Undefined here
-                this.setResponseBody(new Body((Map) this.responseObject));
+            if (responseObject instanceof Map) {
+                this.setResponseBody(new Body((Map) responseObject));
+            } else {
+                Log.e(Log.TAG_ROUTER, "Unable to return body. Response Obj is not a map: ", responseObject);
             }
         }
 

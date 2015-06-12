@@ -78,7 +78,6 @@ public class Router implements Database.ChangeListener {
     private boolean longpoll = false;
 
     private static AppScriptsExecutor appScriptsExecutor;
-    private final Object appScriptsMonitor = new Object();
 
     public static String getVersionString() {
         return Version.getVersion();
@@ -1972,22 +1971,29 @@ public class Router implements Database.ChangeListener {
         }
 
         try {
+            final Object appScriptsMonitor = new Object();
+            //TODO check where to `synchronized`
             synchronized (appScriptsMonitor) {
                 compiler.runScript(function, params, new OnScriptExecutedCallBack() {
+
                     @Override
-                    public void onDone(Object error, Object result) {
-                        synchronized (appScriptsMonitor) {
-                            if (error != null && !(error instanceof org.mozilla.javascript.Undefined)) connection.setResponseObject(error);
-                            else {
-                                if (result instanceof NativeArray) {
-                                    connection.setResponseBody(new Body((List)result));
-                                } else {
-                                    connection.setResponseObject(result);
-                                }
-                            }
-                            appScriptsMonitor.notify();
+                    protected void onSuccessResult(Object resultObj) {
+                        if (resultObj instanceof NativeArray) {
+                            connection.setResponseBody(new Body((List) resultObj));
+                        } else {
+                            connection.setResponseObject(resultObj);
                         }
+                        appScriptsMonitor.notify();
                     }
+
+                    @Override
+                    public void onErrorResult(Object errorObj) {
+                        Log.w(Log.TAG_ROUTER, "Request to .../_api/... returned with error: " + errorObj);
+
+                        connection.setResponseObject(errorObj);
+                        appScriptsMonitor.notify();
+                    }
+
                 });
 
                 appScriptsMonitor.wait(30000);
