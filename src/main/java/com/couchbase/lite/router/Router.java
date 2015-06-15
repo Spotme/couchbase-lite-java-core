@@ -1,8 +1,6 @@
 package com.couchbase.lite.router;
 
 
-import com.couchbase.lite.appscripts.OnScriptExecutedCallBack;
-import com.couchbase.lite.appscripts.AppScriptsExecutor;
 import com.couchbase.lite.AsyncTask;
 import com.couchbase.lite.Attachment;
 import com.couchbase.lite.BlobStoreWriter;
@@ -23,6 +21,8 @@ import com.couchbase.lite.RevisionList;
 import com.couchbase.lite.Status;
 import com.couchbase.lite.View;
 import com.couchbase.lite.View.TDViewCollation;
+import com.couchbase.lite.appscripts.AppScriptsExecutor;
+import com.couchbase.lite.appscripts.OnScriptExecutedCallBack;
 import com.couchbase.lite.auth.FacebookAuthorizer;
 import com.couchbase.lite.auth.PersonaAuthorizer;
 import com.couchbase.lite.internal.AttachmentInternal;
@@ -59,6 +59,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -1971,39 +1972,36 @@ public class Router implements Database.ChangeListener {
         }
 
         try {
-            final Object appScriptsMonitor = new Object();
-            //TODO check where to `synchronized`
-            synchronized (appScriptsMonitor) {
-                compiler.runScript(function, params, new OnScriptExecutedCallBack() {
+            final CountDownLatch jsFinishedLatch = new CountDownLatch(1);
 
-                    @Override
-                    protected void onSuccessResult(Object resultObj) {
-                        synchronized (appScriptsMonitor) {
-                            if (resultObj instanceof NativeArray) {
-                                connection.setResponseBody(new Body((List) resultObj));
-                            } else {
-                                connection.setResponseObject(resultObj);
-                            }
-                            appScriptsMonitor.notify();
-                        }
+            compiler.runScript(function, params, new OnScriptExecutedCallBack() {
+
+                @Override
+                protected void onSuccessResult(Object resultObj) {
+                    if (resultObj instanceof NativeArray) {
+                        connection.setResponseBody(new Body((List) resultObj));
+                    } else {
+                        connection.setResponseObject(resultObj);
                     }
 
-                    @Override
-                    public void onErrorResult(Object errorObj) {
-                        synchronized (appScriptsMonitor) {
-                            Log.w(Log.TAG_ROUTER, "Request to .../_api/... returned with error: " + errorObj);
+                    jsFinishedLatch.countDown();
+                }
 
-                            connection.setResponseObject(errorObj);
-                            appScriptsMonitor.notify();
-                        }
-                    }
+                @Override
+                public void onErrorResult(Object errorObj) {
+                    Log.w(Log.TAG_ROUTER, "Request to .../_api/... returned with error: " + errorObj);
 
-                });
+                    connection.setResponseObject(errorObj);
 
-                appScriptsMonitor.wait(30000);
+                    jsFinishedLatch.countDown();
+                }
 
-                return new Status(Status.OK);
-            }
+            });
+
+            final int maxTimeToWaitJsExecution = 30; //max wait time is randomly picked for now
+            jsFinishedLatch.await(maxTimeToWaitJsExecution, TimeUnit.SECONDS);
+
+            return new Status(Status.OK);
         } catch (Exception e) {
             return new Status(Status.DB_ERROR);
         }
