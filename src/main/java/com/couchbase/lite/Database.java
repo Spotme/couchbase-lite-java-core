@@ -396,6 +396,16 @@ public final class Database {
             deleteStatus &= fileJournal.delete();
         }
 
+        File fileWal = new File(path + "-wal");
+        if (fileWal.exists()) {
+            fileWal.delete();
+        }
+
+        File fileShm = new File(path + "-shm");
+        if (fileShm.exists()) {
+            fileShm.delete();
+        }
+
         File attachmentsFile = new File(getAttachmentStorePath());
 
 
