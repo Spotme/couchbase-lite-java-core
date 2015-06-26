@@ -3715,7 +3715,8 @@ public final class Database {
 
             //// PART III: In which the actual insertion finally takes place:
             // Now insert the rev itself:
-            long newSequence = insertRevision(newRev, docNumericID, parentSequence, true, (attachments != null), json);
+            final boolean hasAttachment = (attachments != null && attachments.size() > 0);
+            long newSequence = insertRevision(newRev, docNumericID, parentSequence, true, hasAttachment, json);
             if(newSequence <= 0) {
                 return null;
             }
