@@ -500,6 +500,7 @@ public final class View {
             }
 
             int deleted = 0;
+            int added = 0;
             cursor = database.getDatabase().rawQuery("SELECT changes()", null);
             cursor.moveToNext();
             deleted = cursor.getInt(0);
@@ -676,6 +677,7 @@ public final class View {
                         // Add a "_conflicts" property if there were conflicting revisions:
                         properties.put("_conflicts", conflicts);
                     }
+                    added++;
 
                     // Call the user-defined map() to emit new key/value
                     // pairs from this revision:
@@ -694,10 +696,9 @@ public final class View {
                     whereArgs);
 
             Date d2 = new Date();
-            // FIXME actually count number added :)
             Log.v(Log.TAG_VIEW, "Finished re-indexing view: %s "
                     + " up to sequence %s"
-                    + " (deleted %s added ?) in %s ms", name, dbMaxSequence, deleted, (d2.getTime()-d1.getTime()));
+                    + " (deleted %s added %s) in %s ms", name, dbMaxSequence, deleted, added, (d2.getTime()-d1.getTime()));
             result.setCode(Status.OK);
 
         } catch (SQLException e) {
