@@ -28,8 +28,6 @@ import com.couchbase.lite.storage.SQLiteStorageEngine;
 import com.couchbase.lite.support.JsonDocument;
 import com.couchbase.lite.util.Log;
 import com.couchbase.lite.util.Utils;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -39,6 +37,16 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Handler;
 
 /**
  * Represents a view available in a database.
@@ -463,9 +471,13 @@ public final class View {
         Status result = new Status(Status.INTERNAL_SERVER_ERROR);
         Cursor cursor = null;
 
+        ExecutorService taskExecutor = Executors.newFixedThreadPool(30);
+        final List<ContentValues> inserts = new ArrayList<>();
+
         try {
 
-            long lastSequence = getLastSequenceIndexed();
+//            long lastSequence = getLastSequenceIndexed();
+            long lastSequence = name.contains("timetable") ? 0 : getLastSequenceIndexed();
             long dbMaxSequence = database.getLastSequenceNumber();
             if(lastSequence == dbMaxSequence) {
                 // nothing to do (eg,  kCBLStatusNotModified)
@@ -509,7 +521,7 @@ public final class View {
             // This is the emit() block, which gets called from within the
             // user-defined map() block
             // that's called down below.
-            AbstractTouchMapEmitBlock emitBlock = new AbstractTouchMapEmitBlock() {
+            final AbstractTouchMapEmitBlock emitBlock = new AbstractTouchMapEmitBlock() {
 
                 @Override
                 public void emit(Object key, Object value) {
@@ -540,7 +552,8 @@ public final class View {
                         insertValues.put("sequence", sequence);
                         insertValues.put("key", keyJson);
                         insertValues.put("value", valueJson);
-                        database.getDatabase().insert("maps", null, insertValues);
+                        inserts.add(insertValues);
+//                        database.getDatabase().insert("maps", null, insertValues);
                     } catch (Exception e) {
                         Log.e(Log.TAG_VIEW, "Error emitting", e);
                         // find a better way to propagate this back
@@ -581,7 +594,7 @@ public final class View {
 
                 // Reconstitute the document as a dictionary:
                 sequence = cursor.getLong(1);
-                String docId = cursor.getString(2);
+                final String docId = cursor.getString(2);
                 if(docId.startsWith("_design/")) {  // design docs don't get indexed!
                     keepGoing = cursor.moveToNext();
                     continue;
@@ -590,7 +603,7 @@ public final class View {
                 String revId = cursor.getString(3);
                 byte[] json = cursor.getBlob(4);
 
-                boolean noAttachments = cursor.getInt(5) > 0;
+                final boolean noAttachments = cursor.getInt(5) > 0;
 
                 final ArrayList<String> conflicts = new ArrayList<String>();
                 while ((keepGoing = cursor.moveToNext()) &&  cursor.getLong(0) == docID) {
@@ -659,31 +672,54 @@ public final class View {
                     }
                 }
 
-                // Get the document properties, to pass to the map function:
-                EnumSet<TDContentOptions> contentOptions = EnumSet.noneOf(Database.TDContentOptions.class);
-                if (noAttachments) contentOptions.add(TDContentOptions.TDNoAttachments);
+                final byte[] finalJson = json;
+                final String finalRevId = revId;
+                final long finalSequence = sequence;
+                added++;
 
-                Map<String, Object> properties = database.documentPropertiesFromJSON(
-                        json,
-                        docId,
-                        revId,
-                        false,
-                        sequence,
-                        contentOptions
-                );
+                taskExecutor.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        // Get the document properties, to pass to the map function:
+                        EnumSet<TDContentOptions> contentOptions = EnumSet.noneOf(Database.TDContentOptions.class);
+                        if (noAttachments) contentOptions.add(TDContentOptions.TDNoAttachments);
 
-                if (properties != null) {
-                    if (!conflicts.isEmpty()) {
-                        // Add a "_conflicts" property if there were conflicting revisions:
-                        properties.put("_conflicts", conflicts);
+                        final Map<String, Object> properties = database.documentPropertiesFromJSON(
+                                finalJson,
+                                docId,
+                                finalRevId,
+                                false,
+                                finalSequence,
+                                contentOptions
+                        );
+
+                        if (properties != null) {
+                            if (!conflicts.isEmpty()) {
+                                // Add a "_conflicts" property if there were conflicting revisions:
+                                properties.put("_conflicts", conflicts);
+                            }
+
+                            // Call the user-defined map() to emit new key/value
+                            // pairs from this revision:
+                            emitBlock.setSequence(finalSequence);
+
+                            mapBlock.map(properties, emitBlock);
+                        }
+
                     }
-                    added++;
+                });
 
-                    // Call the user-defined map() to emit new key/value
-                    // pairs from this revision:
-                    emitBlock.setSequence(sequence);
-                    mapBlock.map(properties, emitBlock);
-                }
+            }
+
+            try {
+                taskExecutor.shutdown();
+                taskExecutor.awaitTermination(30, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            for (ContentValues contentValues : inserts) {
+                database.getDatabase().insert("maps", null, contentValues);
             }
 
             // Finally, record the last revision sequence number that was
@@ -698,7 +734,7 @@ public final class View {
             Date d2 = new Date();
             Log.v(Log.TAG_VIEW, "Finished re-indexing view: %s "
                     + " up to sequence %s"
-                    + " (deleted %s added %s) in %s ms", name, dbMaxSequence, deleted, added, (d2.getTime()-d1.getTime()));
+                    + " (deleted %s added %s) in %s ms", name, dbMaxSequence, deleted, added, (d2.getTime() - d1.getTime()));
             result.setCode(Status.OK);
 
         } catch (SQLException e) {
