@@ -39,7 +39,6 @@ import com.couchbase.lite.util.Log;
 import com.couchbase.lite.util.StreamUtils;
 import com.couchbase.lite.util.TextUtils;
 import com.couchbase.lite.util.Utils;
-import com.fasterxml.jackson.databind.ObjectReader;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -1496,8 +1495,6 @@ public final class Database {
         }
     }
 
-    ObjectReader reader = Manager.getObjectMapper().reader(Map.class);
-
     /**
      * @exclude
      */
@@ -1507,25 +1504,27 @@ public final class Database {
 
         RevisionInternal rev = new RevisionInternal(docId, revId, deleted, this);
         rev.setSequence(sequence);
-//        Map<String, Object> extra = extraPropertiesForRevision(rev, contentOptions);
-//        if (json == null) {
-//            return extra;
-//        }
+        Map<String, Object> extra = extraPropertiesForRevision(rev, contentOptions);
+        if (json == null) {
+            return extra;
+        }
 
-        Map<String, Object> docProperties = null;
+        return mapJsonToObject(json, extra);
+    }
+
+    @InterfaceAudience.Private
+    public Map<String, Object> mapJsonToObject(byte[] json, Map<String, Object> extra) {
+        Map<String, Object> docProperties;
         try {
-//            docProperties = Manager.getObjectMapper().readValue(json, Map.class);
-
-//            final ObjectReader reader = Manager.getObjectMapper().reader(Map.class);
-            docProperties = reader.readValue(json);
-//            docProperties.putAll(extra);
+            docProperties = Manager.getMapReader().readValue(json);
+            docProperties.putAll(extra);
             return docProperties;
         } catch (Exception e) {
             Log.e(Database.TAG, "Error serializing properties to JSON", e);
         }
-
-        return docProperties;
+        return null;
     }
+
 
     /**
      * @exclude

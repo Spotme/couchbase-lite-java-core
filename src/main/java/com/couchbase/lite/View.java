@@ -450,6 +450,8 @@ public final class View {
         this.collation = collation;
     }
 
+    int added = 0;
+
     /**
      * Updates the view's index (incrementally) if necessary.
      * @return 200 if updated, 304 if already up-to-date, else an error code
@@ -471,7 +473,7 @@ public final class View {
         Status result = new Status(Status.INTERNAL_SERVER_ERROR);
         Cursor cursor = null;
 
-        ExecutorService taskExecutor = Executors.newFixedThreadPool(30);
+        ExecutorService taskExecutor = Executors.newFixedThreadPool(5);
         final List<ContentValues> inserts = new ArrayList<>();
 
         try {
@@ -512,7 +514,7 @@ public final class View {
             }
 
             int deleted = 0;
-            int added = 0;
+            added = 0;
             cursor = database.getDatabase().rawQuery("SELECT changes()", null);
             cursor.moveToNext();
             deleted = cursor.getInt(0);
@@ -553,6 +555,7 @@ public final class View {
                         insertValues.put("key", keyJson);
                         insertValues.put("value", valueJson);
                         inserts.add(insertValues);
+                        added++;
 //                        database.getDatabase().insert("maps", null, insertValues);
                     } catch (Exception e) {
                         Log.e(Log.TAG_VIEW, "Error emitting", e);
@@ -573,6 +576,7 @@ public final class View {
                     insertValues.put("value", valueJson);
                     insertValues.put("fulltext_id", ftsId);
                     database.getDatabase().insert("maps", null, insertValues);
+                    added++;
                 }
             };
 
@@ -673,24 +677,22 @@ public final class View {
                 }
 
                 final byte[] finalJson = json;
-                final String finalRevId = revId;
                 final long finalSequence = sequence;
-                added++;
+
+                EnumSet<TDContentOptions> contentOptions = EnumSet.noneOf(Database.TDContentOptions.class);
+                if (noAttachments) contentOptions.add(TDContentOptions.TDNoAttachments);
+
+                RevisionInternal rev = new RevisionInternal(docId, revId, false, database);
+                rev.setSequence(sequence);
+                final  Map<String, Object> extra = database.extraPropertiesForRevision(rev, contentOptions);
+
 
                 taskExecutor.execute(new Runnable() {
                     @Override
                     public void run() {
-                        // Get the document properties, to pass to the map function:
-                        EnumSet<TDContentOptions> contentOptions = EnumSet.noneOf(Database.TDContentOptions.class);
-                        if (noAttachments) contentOptions.add(TDContentOptions.TDNoAttachments);
-
-                        final Map<String, Object> properties = database.documentPropertiesFromJSON(
+                        final Map<String, Object> properties = database.mapJsonToObject(
                                 finalJson,
-                                docId,
-                                finalRevId,
-                                false,
-                                finalSequence,
-                                contentOptions
+                                extra
                         );
 
                         if (properties != null) {

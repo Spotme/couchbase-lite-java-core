@@ -13,6 +13,7 @@ import com.couchbase.lite.support.Version;
 import com.couchbase.lite.util.Log;
 import com.couchbase.lite.util.StreamUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectReader;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -70,6 +71,7 @@ public final class Manager {
     public static final String VERSION = Version.VERSION;
 
     private static final ObjectMapper mapper = new ObjectMapper();
+    private static ObjectReader mapReader;
     private ManagerOptions options;
     private File directoryFile;
     private Map<String, Database> databases;
@@ -84,6 +86,15 @@ public final class Manager {
     @InterfaceAudience.Private
     public static ObjectMapper getObjectMapper() {
         return mapper;
+    }
+
+    /**
+     * @exclude
+     */
+    @InterfaceAudience.Private
+    public static ObjectReader getMapReader() {
+        if (mapReader == null) mapReader = mapper.reader(Map.class);
+        return mapReader;
     }
 
     /**
