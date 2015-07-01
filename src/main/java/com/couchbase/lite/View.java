@@ -473,13 +473,12 @@ public final class View {
         Status result = new Status(Status.INTERNAL_SERVER_ERROR);
         Cursor cursor = null;
 
-        ExecutorService taskExecutor = Executors.newFixedThreadPool(5);
+        ExecutorService taskExecutor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()+1);
         final List<ContentValues> inserts = new ArrayList<>();
 
         try {
 
-//            long lastSequence = getLastSequenceIndexed();
-            long lastSequence = name.contains("timetable") ? 0 : getLastSequenceIndexed();
+            long lastSequence = getLastSequenceIndexed();
             long dbMaxSequence = database.getLastSequenceNumber();
             if(lastSequence == dbMaxSequence) {
                 // nothing to do (eg,  kCBLStatusNotModified)
