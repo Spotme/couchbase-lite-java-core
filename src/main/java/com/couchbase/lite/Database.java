@@ -1166,6 +1166,22 @@ public final class Database {
             dbVersion = 17;
         }
 
+        if (dbVersion < 18) {
+            // Fix wrong map result in version 1.11.7 & 1.11.8
+            String upgradeSql = "DROP TABLE maps";
+            if (!initialize(upgradeSql)) {
+                return false;
+            }
+
+            upgradeSql = "UPDATE views SET lastsequence=0; " +
+                    "PRAGMA user_version = 18";
+            if (!initialize(upgradeSql)) {
+                return false;
+            }
+
+            dbVersion = 18;
+        }
+
 
         try {
             attachments = new BlobStore(getAttachmentStorePath(), Database.this);

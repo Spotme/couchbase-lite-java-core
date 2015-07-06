@@ -477,7 +477,6 @@ public final class View {
         final List<ContentValues> inserts = new ArrayList<>();
 
         try {
-
             long lastSequence = getLastSequenceIndexed();
             long dbMaxSequence = database.getLastSequenceNumber();
             if(lastSequence == dbMaxSequence) {
@@ -525,26 +524,7 @@ public final class View {
             final AbstractTouchMapEmitBlock emitBlock = new AbstractTouchMapEmitBlock() {
 
                 @Override
-                public void emit(Object key, Object value) {
-
-                    try {
-                        String valueJson;
-                        String keyJson = Manager.getObjectMapper().writeValueAsString(key);
-                        if (value==null) {
-                            valueJson = null;
-                        } else{
-                            valueJson = Manager.getObjectMapper().writeValueAsString(value);
-                        }
-
-                        this.emitJSON(keyJson, valueJson);
-                    } catch (Exception e) {
-                        Log.e(Log.TAG_VIEW, "Error emitting", e);
-                        // find a better way to propagate this back
-                    }
-                }
-
-                @Override
-                public void emitJSON(String keyJson, String valueJson) {
+                public void emitJSON(String keyJson, String valueJson, Long sequence) {
                     try {
                         //Log.v(Log.TAG_VIEW, "    emit(" + keyJson + ", "
                         //        + valueJson + ")");
@@ -553,6 +533,8 @@ public final class View {
                         insertValues.put("sequence", sequence);
                         insertValues.put("key", keyJson);
                         insertValues.put("value", valueJson);
+                        Log.e("victor", "keyJson: " + keyJson);
+                        Log.e("victor", "valueJson: " + valueJson);
                         inserts.add(insertValues);
                         added++;
 //                        database.getDatabase().insert("maps", null, insertValues);
@@ -563,7 +545,7 @@ public final class View {
                 }
 
                 @Override
-                public void emitJSON(SpecialKey key, String valueJson) {
+                public void emitJSON(SpecialKey key, String valueJson, Long sequence) {
                     ContentValues ftsValues = new ContentValues();
                     ftsValues.put("content", key.getText());
                     long ftsId = database.getDatabase().insert("fulltext", null, ftsValues);
@@ -571,7 +553,7 @@ public final class View {
                     ContentValues insertValues = new ContentValues();
                     insertValues.put("view_id", getViewId());
                     insertValues.put("sequence", sequence);
-                    insertValues.put("key", "");
+                    insertValues.put("key", key.getText());
                     insertValues.put("value", valueJson);
                     insertValues.put("fulltext_id", ftsId);
                     database.getDatabase().insert("maps", null, insertValues);
@@ -675,9 +657,6 @@ public final class View {
                     }
                 }
 
-                final byte[] finalJson = json;
-                final long finalSequence = sequence;
-
                 EnumSet<TDContentOptions> contentOptions = EnumSet.noneOf(Database.TDContentOptions.class);
                 if (noAttachments) contentOptions.add(TDContentOptions.TDNoAttachments);
 
@@ -685,6 +664,8 @@ public final class View {
                 rev.setSequence(sequence);
                 final  Map<String, Object> extra = database.extraPropertiesForRevision(rev, contentOptions);
 
+                final byte[] finalJson = json;
+                final long finalSequence = sequence;
 
                 taskExecutor.execute(new Runnable() {
                     @Override
@@ -704,7 +685,7 @@ public final class View {
                             // pairs from this revision:
                             emitBlock.setSequence(finalSequence);
 
-                            mapBlock.map(properties, emitBlock);
+                            mapBlock.map(properties, emitBlock, finalSequence);
                         }
 
                     }

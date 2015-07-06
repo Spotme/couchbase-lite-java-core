@@ -22,10 +22,8 @@ package com.couchbase.lite;
  */
 public interface Emitter {
 
-    void emit(Object key, Object value);
+    void emitJSON(String keyJson, String valueJson, Long sequence);
 
-    void emitJSON(String keyJson, String valueJson);
-
-    void emitJSON(SpecialKey key, String valueJson);
+    void emitJSON(SpecialKey key, String valueJson, Long sequence);
 
 }
