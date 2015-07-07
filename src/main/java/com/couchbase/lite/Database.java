@@ -1166,20 +1166,11 @@ public final class Database {
             dbVersion = 17;
         }
 
-        if (dbVersion < 18) {
-            // Fix wrong map result in version 1.11.7 & 1.11.8
-            String upgradeSql = "DROP TABLE maps";
-            if (!initialize(upgradeSql)) {
-                return false;
-            }
-
-            upgradeSql = "UPDATE views SET lastsequence=0; " +
-                    "PRAGMA user_version = 18";
-            if (!initialize(upgradeSql)) {
-                return false;
-            }
-
-            dbVersion = 18;
+        if (dbVersion < 19) {
+            // Fix wrong map result from version 1.11.7 to 1.11.9
+            dbVersion = 19;
+            boolean res = restoreMaps(dbVersion);
+            if (!res) return false;
         }
 
 
@@ -1192,6 +1183,37 @@ public final class Database {
         }
 
         open = true;
+        return true;
+    }
+
+    /**
+     * Restore the maps table
+     * @param version
+     * @return
+     */
+    private boolean restoreMaps(int version) {
+        // instead of delete all rows in maps table, drop table and recreate it.
+        String upgradeSql = "DROP TABLE maps";
+        if (!initialize(upgradeSql)) {
+            return false;
+        }
+
+        upgradeSql = "CREATE TABLE IF NOT EXISTS maps ( " +
+                " view_id INTEGER NOT NULL REFERENCES views(view_id) ON DELETE CASCADE, " +
+                " sequence INTEGER NOT NULL REFERENCES revs(sequence) ON DELETE CASCADE, " +
+                " key TEXT NOT NULL COLLATE JSON, " +
+                " value TEXT); " +
+                " CREATE INDEX IF NOT EXISTS maps_keys on maps(view_id, key COLLATE JSON); " +
+                " CREATE INDEX IF NOT EXISTS maps_sequence ON maps(sequence);";
+        if (!initialize(upgradeSql)) {
+            return false;
+        }
+
+        upgradeSql = "UPDATE views SET lastsequence=0; " +
+                "PRAGMA user_version = " + version;
+        if (!initialize(upgradeSql)) {
+            return false;
+        }
         return true;
     }
 
