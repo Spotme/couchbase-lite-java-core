@@ -37,16 +37,9 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Handler;
 
 /**
  * Represents a view available in a database.
@@ -533,8 +526,6 @@ public final class View {
                         insertValues.put("sequence", sequence);
                         insertValues.put("key", keyJson);
                         insertValues.put("value", valueJson);
-                        Log.e("victor", "keyJson: " + keyJson);
-                        Log.e("victor", "valueJson: " + valueJson);
                         inserts.add(insertValues);
                         added++;
 //                        database.getDatabase().insert("maps", null, insertValues);
