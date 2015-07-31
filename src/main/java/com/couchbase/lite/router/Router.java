@@ -1974,7 +1974,7 @@ public class Router implements Database.ChangeListener {
         try {
             final CountDownLatch jsFinishedLatch = new CountDownLatch(1);
 
-            compiler.runScript(function, params, new OnScriptExecutedCallBack() {
+            compiler.runScript(function, params, url, new OnScriptExecutedCallBack() {
 
                 @Override
                 protected void onSuccessResult(Object resultObj) {
@@ -1988,10 +1988,10 @@ public class Router implements Database.ChangeListener {
                 }
 
                 @Override
-                public void onErrorResult(Object errorObj) {
-                    Log.w(Log.TAG_ROUTER, "Request to .../_api/... returned with error: " + errorObj);
+                public void onErrorResult(Throwable error) {
+                    Log.w(Log.TAG_ROUTER, "Request to .../_api/... returned with error: ", error);
 
-                    connection.setResponseObject(errorObj);
+                    connection.setResponseObject(error);
 
                     jsFinishedLatch.countDown();
                 }
