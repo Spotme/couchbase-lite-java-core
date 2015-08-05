@@ -27,6 +27,8 @@ public abstract class OnScriptExecutedCallBack {
      * This call-back should be @Overridden only when Implementer do not care about result of "done()",
      * and just need to know, that execution of "App Script" is finished.
      *
+     * Must be called from the thread specified with {@link #getThreadToRun()}.
+     *
      * @param callBackData data passed to "done()" bu JS script.
      */
     public final void onDone(Object[] callBackData) {
@@ -55,7 +57,9 @@ public abstract class OnScriptExecutedCallBack {
      */
     protected abstract void onSuccessResult(Object resultObj);
 
-    //fixme use OnScriptExecutedCallBack.getThreadToRun()
+    /**
+     * Must be called from the thread specified with {@link #getThreadToRun()}.
+     */
     public void handleErrorResult(Object errorObj) {
         if (errorObj instanceof RhinoException) {
             final RhinoException rhinoException = (RhinoException) errorObj;
