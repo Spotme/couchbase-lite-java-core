@@ -55,6 +55,7 @@ public abstract class OnScriptExecutedCallBack {
      */
     protected abstract void onSuccessResult(Object resultObj);
 
+    //fixme use OnScriptExecutedCallBack.getThreadToRun()
     public void handleErrorResult(Object errorObj) {
         if (errorObj instanceof RhinoException) {
             final RhinoException rhinoException = (RhinoException) errorObj;

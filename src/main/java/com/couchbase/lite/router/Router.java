@@ -1891,8 +1891,10 @@ public class Router implements Database.ChangeListener {
      * @return
      */
     private Status api(final String method) {
-        String url = connection.getURL().toString();
-        if (!url.endsWith("/")) url += "/";
+        final String urlString = connection.getURL().toString();
+        final String url = urlString.endsWith("/")
+                ? urlString
+                : urlString + "/";
 
         if (url.split("_api/").length < 2) {
             setErrorResponse("Unable to find api version");
@@ -1988,8 +1990,8 @@ public class Router implements Database.ChangeListener {
                 }
 
                 @Override
-                public void onErrorResult(Throwable error) {
-                    Log.w(Log.TAG_ROUTER, "Request to .../_api/... returned with error: ", error);
+                protected void onErrorResult(Throwable error) {
+                    Log.w(Log.TAG_ROUTER, "Request to " + url + " returned with error: ", error);
 
                     connection.setResponseObject(error);
 
