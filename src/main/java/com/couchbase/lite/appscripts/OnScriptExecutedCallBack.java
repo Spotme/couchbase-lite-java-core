@@ -3,38 +3,41 @@ package com.couchbase.lite.appscripts;
 import org.mozilla.javascript.RhinoException;
 import org.mozilla.javascript.Undefined;
 
+import ro.isdc.wro.extensions.script.RhinoUtils;
+
 /**
  * Call-back, that is called when corespondent call-back function is called in JS script.
  * Usually corespondent call-back function is named done() and is last param in JS script function.
  */
 public abstract class OnScriptExecutedCallBack {
-    final ThreadToRun threadToRun;
+    /**
+     * Runs call-back {@link #onSuccessResult(Object)} or {@link #onErrorResult(Throwable)} using desired thread.
+     */
+    final Threader threader;
 
-    public OnScriptExecutedCallBack(ThreadToRun threadToRun) {
-        this.threadToRun = threadToRun;
+    public OnScriptExecutedCallBack(Threader threader) {
+        this.threader = threader;
     }
 
     public OnScriptExecutedCallBack() {
-        threadToRun = ThreadToRun.DEFAULT;
+        this(DefaultThreader.getInstance());
     }
 
     /**
      * Called when "done()" is called in JS script. Normally JS should do nothing after it.
      *
      * Implementers should consider using {@link #onErrorResult(Throwable)} and {@link #onSuccessResult(Object)} instead.
-     * Default implementation dispatches incoming data to these methods.
+     * Default implementation dispatches incoming data to these methods and run them on desired thread using {@link #threader}.
      *
      * This call-back should be @Overridden only when Implementer do not care about result of "done()",
      * and just need to know, that execution of "App Script" is finished.
      *
-     * Must be called from the thread specified with {@link #getThreadToRun()}.
-     *
-     * @param callBackData data passed to "done()" bu JS script.
+     * @param callBackData data passed to "done()" by JS script.
      */
     public final void onDone(Object[] callBackData) {
         if (callBackData.length > 0 && callBackData[0] != null && callBackData[0] != Undefined.instance) {
-            final Object error = callBackData[0];
-            handleErrorResult(error);
+            final Object jsErrorObj = callBackData[0];
+            handleErrorResult(jsErrorObj);
         } else {
             final Object respObj;
             if (callBackData.length > 1 && callBackData[1] != Undefined.instance) {
@@ -42,8 +45,28 @@ public abstract class OnScriptExecutedCallBack {
             } else {
                 respObj = null;
             }
-            onSuccessResult(respObj);
+            handleSuccessResult(respObj);
         }
+    }
+
+    /**
+     * Called when "done()" is called in JS script without error data. Normally JS should do nothing after it.
+     *
+     * Implementers should use {@link #onSuccessResult(Object)} instead.
+     * Default implementation dispatches incoming data to this method and run it on proper thread using {@link #threader}.
+     *
+     *
+     * @param resultObj result, passed to "done()" by JS script.
+     */
+    protected void handleSuccessResult(final Object resultObj) {
+        final Runnable onSuccessRunnable = new Runnable() {
+            @Override
+            public void run() {
+                onSuccessResult(resultObj);
+            }
+        };
+
+        threader.execute(onSuccessRunnable);
     }
 
     /**
@@ -58,17 +81,29 @@ public abstract class OnScriptExecutedCallBack {
     protected abstract void onSuccessResult(Object resultObj);
 
     /**
-     * Must be called from the thread specified with {@link #getThreadToRun()}.
+     * Called when "done()" is called in JS script. Normally JS should do nothing after it.
+     *
+     * Implementers should use {@link #onErrorResult(Throwable)}.
+     * Default implementation dispatches incoming data to this method and run it on proper thread using {@link #threader}.
+     *
+     * @param jsErrorObj error object, passed to "done()" bu JS script.
      */
-    public void handleErrorResult(Object errorObj) {
-        if (errorObj instanceof RhinoException) {
-            final RhinoException rhinoException = (RhinoException) errorObj;
-            onErrorResult(new RuntimeException(rhinoException.getMessage() + " : \n" + rhinoException.getScriptStackTrace() + '\n', rhinoException));
-        } else if (errorObj instanceof Throwable) {
-            onErrorResult((Throwable) errorObj);
-        } else {
-            onErrorResult(new RuntimeException("AppScripts function has returned an error: " + errorObj));
-        }
+    public void handleErrorResult(final Object jsErrorObj) {
+        final Runnable onErrorResult = new Runnable() {
+            @Override
+            public void run() {
+                if (jsErrorObj instanceof RhinoException) {
+                    final RhinoException rhinoException = (RhinoException) jsErrorObj;
+                    onErrorResult(new RuntimeException(rhinoException.getMessage() + " : \n" + rhinoException.getScriptStackTrace() + '\n', rhinoException));
+                } else if (jsErrorObj instanceof Throwable) {
+                    onErrorResult((Throwable) jsErrorObj);
+                } else {
+                    onErrorResult(new RuntimeException("AppScripts function has returned an error: " + RhinoUtils.toJson(jsErrorObj, true)));
+                }
+            }
+        };
+
+        threader.execute(onErrorResult);
     }
 
     /**
@@ -82,17 +117,28 @@ public abstract class OnScriptExecutedCallBack {
     protected abstract void onErrorResult(Throwable error);
 
     /**
-     * @return callers should call {@link #onDone(Object[]) method} on thread, returned by this method.
+     * Runs call-back {@link #onSuccessResult(Object)} or {@link #onErrorResult(Throwable)} using specific thread.
      */
-    public ThreadToRun getThreadToRun() {
-        return threadToRun;
+    public static interface Threader {
+        public void execute(Runnable callBack);
     }
 
     /**
-     * Thread to run correspondent {@link OnScriptExecutedCallBack} on.
+     * Executes call-back Runnable on the same thread, where {@link #execute(Runnable)} is called.
      */
-    static public enum ThreadToRun {
-        DEFAULT, //thread, where JS called "done()" call-back. Either "event loop" or one of "AppScriptsWorkers" threads
-        UI
+    public static class DefaultThreader implements Threader {
+        private static final DefaultThreader instance = new DefaultThreader();
+
+        private DefaultThreader() {
+        }
+
+        public static DefaultThreader getInstance() {
+            return instance;
+        }
+
+        @Override
+        public void execute(Runnable callBack) {
+            callBack.run();
+        }
     }
 }
