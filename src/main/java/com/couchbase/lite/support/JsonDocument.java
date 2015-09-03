@@ -4,13 +4,15 @@ import com.couchbase.lite.Database;
 import com.couchbase.lite.Manager;
 import com.couchbase.lite.util.Log;
 
+import java.util.Arrays;
+
 /**
  * A wrapper around a json byte array that will parse the data
  * as lat as possible
  */
 public class JsonDocument {
 
-    private final byte[] json;
+    private byte[] json;
     private Object cached = null;
 
     public JsonDocument(byte[] json) {
@@ -38,8 +40,17 @@ public class JsonDocument {
                 try {
                     tmp = Manager.getObjectMapper().readValue(json, Object.class);
                 } catch (Exception e) {
-                    //cached will remain null
-                    Log.w(Database.TAG, "Exception parsing json", e);
+
+                    try {
+                        if (json[json.length-1] == '\u0000') {
+                            json = Arrays.copyOf(json, json.length - 1);
+                        }
+                        tmp = Manager.getObjectMapper().readValue(json, Object.class);
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                        //cached will remain null
+                        Log.w(Database.TAG, "Exception parsing json", e);
+                    }
                 }
             }
 
