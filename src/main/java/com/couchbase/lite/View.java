@@ -467,7 +467,7 @@ public final class View {
         Cursor cursor = null;
 
         ExecutorService taskExecutor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-        final List<ContentValues> inserts = new ArrayList<>();
+        final List<ContentValues> inserts = Collections.synchronizedList(new ArrayList());
 
         try {
             long lastSequence = getLastSequenceIndexed();
@@ -526,9 +526,10 @@ public final class View {
                         insertValues.put("sequence", sequence);
                         insertValues.put("key", keyJson);
                         insertValues.put("value", valueJson);
-                        inserts.add(insertValues);
-                        added++;
-//                        database.getDatabase().insert("maps", null, insertValues);
+                        synchronized (inserts) {
+                            inserts.add(insertValues);
+                            added++;
+                        }
                     } catch (Exception e) {
                         Log.e(Log.TAG_VIEW, "Error emitting", e);
                         // find a better way to propagate this back
@@ -547,8 +548,10 @@ public final class View {
                     insertValues.put("key", key.getText());
                     insertValues.put("value", valueJson);
                     insertValues.put("fulltext_id", ftsId);
-                    database.getDatabase().insert("maps", null, insertValues);
-                    added++;
+                    synchronized (inserts) {
+                        inserts.add(insertValues);
+                        added++;
+                    }
                 }
             };
 
@@ -690,6 +693,7 @@ public final class View {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
+
 
             for (ContentValues contentValues : inserts) {
                 database.getDatabase().insert("maps", null, contentValues);
