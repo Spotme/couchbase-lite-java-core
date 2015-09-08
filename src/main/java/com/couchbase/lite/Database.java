@@ -923,6 +923,11 @@ public final class Database {
     }
 
     /**
+     * @throws IllegalStateException if unable to create a storage engine.
+     * E.g. encryption key is wrong or db is not encrypted.
+     *
+     * @return true if opened succeffully, false otherwise.
+     *
      * @exclude
      */
     @InterfaceAudience.Private

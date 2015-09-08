@@ -228,34 +228,71 @@ public final class Manager {
     }
 
 
+    //todo add back "throws CouchbaseLiteException" instead of silently returning null
     /**
-     * Returns the database with the given name, or creates it if it doesn't exist.
+     * Returns open database with the given name, or creates it if it doesn't exist.
      * Multiple calls with the same name will return the same Database instance.
+     *
+     * @throws IllegalStateException if unable to create a storage engine.
+     * E.g. encryption key is wrong.
      */
     @InterfaceAudience.Public
-    public Database getDatabase(String name) throws CouchbaseLiteException {
-        boolean mustExist = false;
-        Database db = getDatabaseWithoutOpening(name, mustExist, null);
-        if (db != null) {
-            boolean opened = db.open();
-            if (!opened) {
-                return null;
-            }
-        }
-        return db;
+    public Database getDatabase(String name) {
+        final boolean mustExist = false;
+
+        return getDatabaseInner(name, mustExist);
     }
 
     /**
      * Returns the database with the given name, or null if it doesn't exist.
      * Multiple calls with the same name will return the same Database instance.
+     *
+     * @return open db or null if it's not possible to open existing db.
+     * @throws IllegalStateException if storage engine was not created. E.g. wrong db encryption, etc.
+     *
      */
     @InterfaceAudience.Public
     public Database getExistingDatabase(String name) throws CouchbaseLiteException {
-        boolean mustExist = true;
-        Database db = getDatabaseWithoutOpening(name, mustExist, null);
-        if (db != null) {
-            db.open();
+        final boolean mustExist = true;
+
+        return getDatabaseInner(name, mustExist);
+    }
+
+
+    /**
+     * Gets db as encrypted db. If opening is failed - trys to get it as not encrypted db.
+     *
+     * @throws IllegalStateException if unable to create a storage engine.
+     * E.g. encryption key is wrong.
+     */
+    private Database getDatabaseInner(String name, boolean mustExist) {
+        Database db = databases.get(name);
+        if(db == null) {
+
+            //open as encrypted db
+            db = getDatabaseWithoutOpeningWithoutCaching(name, mustExist, null);
+            if (db != null) {
+                try {
+                    boolean opened = db.open();
+                    if (!opened) {
+                        return null;
+                    }
+                } catch (IllegalStateException e) {
+                    Log.w(Database.TAG, "Unable to open db " + name + "as encrypted. Trying without encryption", e);
+
+                    //open as non encrypted db
+                    db = getDatabaseWithoutOpeningWithoutCaching(name, mustExist, "");
+                    if (db != null) {
+                        boolean opened = db.open();
+                        if (!opened) {
+                            return null;
+                        }
+                    }
+                }
+            }
+            databases.put(name, db);
         }
+
         return db;
     }
 
@@ -473,28 +510,57 @@ public final class Manager {
     }
 
     /**
+     * @return db, which is neither taken from {@link #databases}, nor stored there after construction of the db object.
+     * or null if db mustExist, but it's not.
+     *
      * @exclude
      */
     @InterfaceAudience.Private
-    public synchronized Database getDatabaseWithoutOpening(String name, boolean mustExist, String dbPassword) {
+    public synchronized Database getDatabaseWithoutOpeningWithoutCaching(String name, boolean mustExist, String dbPassword) throws IllegalArgumentException {
+        if (!isValidDatabaseName(name)) {
+            throw new IllegalArgumentException("Invalid database name: " + name);
+        }
+        if (options.isReadOnly()) {
+            mustExist = true;
+        }
+        String path = pathForName(name);
+        if (path == null) {
+            return null;
+        }
+        Database db  = new Database(path, this, dbPassword == null ? options.getDatabasePassword() : dbPassword);
+        if (mustExist && !db.exists()) {
+            Log.w(Database.TAG, "mustExist is true and db (%s) does not exist", name);
+            return null;
+        }
+        db.setName(name);
+        return db;
+    }
+
+    /**
+     * Get either already open db of the "cache" of the open dbs or construct new object of Not opened db.
+     *
+     *  Encryption key does not matter for not opened db as it will be deleted.
+     *
+     * @exclude
+     */
+    @InterfaceAudience.Private
+    public synchronized Database getDatabaseWithoutOpeningForDeletion(String name) {
         Database db = databases.get(name);
         if(db == null) {
             if (!isValidDatabaseName(name)) {
                 throw new IllegalArgumentException("Invalid database name: " + name);
             }
-            if (options.isReadOnly()) {
-                mustExist = true;
-            }
             String path = pathForName(name);
             if (path == null) {
                 return null;
             }
-            db = new Database(path, this, dbPassword == null ? options.getDatabasePassword() : dbPassword);
-            if (mustExist && !db.exists()) {
+            db = new Database(path, this, options.getDatabasePassword());
+            if (!db.exists()) {
                 Log.w(Database.TAG, "mustExist is true and db (%s) does not exist", name);
                 return null;
             }
             db.setName(name);
+            //we can put it to the list. It will be removed on further db.delete()
             databases.put(name, db);
         }
         return db;
@@ -587,9 +653,9 @@ public final class Manager {
         } else {
             remoteStr = source;
             if(createTarget && !cancel) {
-                boolean mustExist = false;
-                db = getDatabaseWithoutOpening(target, mustExist, null);
-                if(!db.open()) {
+                db = getDatabase(target);
+                //todo replace with throw from method
+                if(db == null) {
                     throw new CouchbaseLiteException("cannot open database: " + db, new Status(Status.INTERNAL_SERVER_ERROR));
                 }
             } else {

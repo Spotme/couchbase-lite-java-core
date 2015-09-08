@@ -357,8 +357,7 @@ public class Router implements Database.ChangeListener {
                     return;
                 }
                 else {
-                    boolean mustExist = false;
-                    db = manager.getDatabaseWithoutOpening(dbName, mustExist, null);
+                    db = manager.getDatabase(dbName);
                     if(db == null) {
                         connection.setResponseCode(Status.BAD_REQUEST);
                         try {
@@ -369,7 +368,6 @@ public class Router implements Database.ChangeListener {
                         sendResponse();
                         return;
                     }
-
                 }
             }
         } else {
@@ -379,18 +377,7 @@ public class Router implements Database.ChangeListener {
         String docID = null;
         if(db != null && pathLen > 1) {
             message = message.replaceFirst("_Database", "_Document");
-            // Make sure database exists, then interpret doc name:
-            Status status = openDB();
-            if(!status.isSuccessful()) {
-                connection.setResponseCode(status.getCode());
-                try {
-                    connection.getResponseOutputStream().close();
-                } catch (IOException e) {
-                    Log.e(Log.TAG_ROUTER, "Error closing empty output stream");
-                }
-                sendResponse();
-                return;
-            }
+
             String name = path.get(1);
             if(!name.startsWith("_")) {
                 // Regular document
