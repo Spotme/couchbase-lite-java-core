@@ -141,7 +141,7 @@ public class Router implements Database.ChangeListener {
         String value = getQuery(param);
         if(value != null) {
             try {
-                result = Integer.parseInt(value);
+                result = (int) Double.parseDouble(value);
             } catch (NumberFormatException e) {
                 //ignore, will return default value
             }
