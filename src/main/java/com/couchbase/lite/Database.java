@@ -2709,6 +2709,7 @@ public final class Database {
 				if (attachments.isGZipped(key)) result = new Attachment(new GZIPInputStream(contentStream), cursor.getString(1));
 				else result = new Attachment(contentStream, cursor.getString(1));
                 result.setGZipped(false);
+                result.setKey(BlobKey.convertToHex(key.getBytes()));
                 return result;
             }
 

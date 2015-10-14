@@ -61,6 +61,11 @@ public final class Attachment {
     private InputStream body;
 
     /**
+     * Key of the file
+     */
+    private String key;
+
+    /**
      * Constructor
      */
     @InterfaceAudience.Private
@@ -233,5 +238,13 @@ public final class Attachment {
         this.gzipped = gzipped;
     }
 
+    @InterfaceAudience.Private
+    public String getKey() {
+        return key;
+    }
 
+    @InterfaceAudience.Private
+    public void setKey(String key) {
+        this.key = key;
+    }
 }
