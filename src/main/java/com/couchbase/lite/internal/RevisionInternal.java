@@ -58,8 +58,8 @@ public class RevisionInternal {
         this(new Body(properties), database);
     }
 
-    public Map<String, Object> getProperties() {
-        Map<String, Object> result = null;
+    public HashMap<String, Object> getProperties() {
+        HashMap<String, Object> result = null;
         if (body != null) {
             Map<String, Object> prop;
             try {
