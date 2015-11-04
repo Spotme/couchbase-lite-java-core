@@ -64,6 +64,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Router implements Database.ChangeListener {
 
@@ -1963,6 +1964,7 @@ public class Router implements Database.ChangeListener {
         try {
             final CountDownLatch jsFinishedLatch = new CountDownLatch(1);
 
+            final AtomicBoolean jsErrorOccurredOrReturned = new AtomicBoolean();
             compiler.runScript(function, params, url, new OnScriptExecutedCallBack() {
 
                 @Override
@@ -1980,7 +1982,8 @@ public class Router implements Database.ChangeListener {
                 protected void onErrorResult(Throwable error) {
                     Log.w(Log.TAG_ROUTER, "Request to " + url + " returned with error: ", error);
 
-                    connection.setResponseObject(error);
+                    setErrorResponse(error.getMessage());
+                    jsErrorOccurredOrReturned.set(true);
 
                     jsFinishedLatch.countDown();
                 }
@@ -1990,7 +1993,9 @@ public class Router implements Database.ChangeListener {
             final int maxTimeToWaitJsExecution = 30; //max wait time is randomly picked for now
             jsFinishedLatch.await(maxTimeToWaitJsExecution, TimeUnit.SECONDS);
 
-            return new Status(Status.OK);
+            return !jsErrorOccurredOrReturned.get()
+                    ? new Status(Status.OK)
+                    : new Status(Status.INTERNAL_SERVER_ERROR);
         } catch (Exception e) {
             return new Status(Status.DB_ERROR);
         }
@@ -2062,8 +2067,7 @@ public class Router implements Database.ChangeListener {
     private void setErrorResponse(final String message) {
         Log.e(Log.TAG_ROUTER, message);
         Map<String, Object> result = new HashMap<>();
-        result.put("error", "not_found");
-        result.put("reason", message);
+        result.put("error", message);
         connection.setResponseBody(new Body(result));
     }
 
