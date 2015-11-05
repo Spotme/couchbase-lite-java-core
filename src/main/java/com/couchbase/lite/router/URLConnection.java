@@ -34,6 +34,12 @@ public class URLConnection extends HttpURLConnection {
     private Object responseObject;
     private boolean chunked = false;
 
+    /**
+     * CouchDB and JS should return different result to HTTP request when response is null:
+     * { "ok": true } and empty response body
+     */
+    private boolean jsRequest = false;
+
     private HashMap<String, List<String>> requestProperties = new HashMap<String, List<String>>();
 
     private static final String POST = "POST";
@@ -279,6 +285,13 @@ public class URLConnection extends HttpURLConnection {
         this.requestInputStream = requestInputStream;
     }
 
+    public boolean isJsRequest() {
+        return jsRequest;
+    }
+
+    public void setJsRequest(boolean jsRequest) {
+        this.jsRequest = jsRequest;
+    }
 }
 
 /**

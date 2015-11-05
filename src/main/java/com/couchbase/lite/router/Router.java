@@ -528,7 +528,10 @@ public class Router implements Database.ChangeListener {
         }
 
         // Configure response headers:
-        if(status.isSuccessful() && connection.getResponseBody() == null && connection.getHeaderField("Content-Type") == null) {
+        if(status.isSuccessful()
+                && connection.getResponseBody() == null
+                && connection.getHeaderField("Content-Type") == null
+                && !connection.isJsRequest()) {
             connection.setResponseBody(new Body("{\"ok\":true}".getBytes()));
         }
 
@@ -1879,6 +1882,8 @@ public class Router implements Database.ChangeListener {
      * @return
      */
     private Status api(final String method) {
+        connection.setJsRequest(true);
+
         final String urlString = connection.getURL().toString();
         final String url = urlString.endsWith("/")
                 ? urlString
