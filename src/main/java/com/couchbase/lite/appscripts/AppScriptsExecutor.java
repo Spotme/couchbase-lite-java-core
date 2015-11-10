@@ -2,6 +2,10 @@ package com.couchbase.lite.appscripts;
 
 import java.util.Map;
 
+/**
+ * todo: Instead of Exposing JS executor, we should better expose call-back,
+ * which we can fully implement in Main SpotMe project.
+ */
 public interface AppScriptsExecutor {
 
     AppScriptsExecutor newInstance();
@@ -16,7 +20,7 @@ public interface AppScriptsExecutor {
      */
     public void runScript(final String scriptSource, final Map<String, Object> params, final String sourceName, final OnScriptExecutedCallBack callbackFunction);
 
-    Map<String, Object> allAppScripts();
+    String getJsSourceCode(String scriptPath);
 
     String getActiveEvent();
 

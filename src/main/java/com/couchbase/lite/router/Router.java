@@ -1899,7 +1899,7 @@ public class Router implements Database.ChangeListener {
         final String[] elements = url.split("_api/")[1].split("/");
         final String apiVersion = elements[0];
 
-        String function = "";
+        String JsFunctionSource = "";
         Map<String, Object> params = new HashMap<>();
 
         if ("v1".equals(apiVersion)) {
@@ -1924,7 +1924,7 @@ public class Router implements Database.ChangeListener {
                 case "appscripts":
                     if (elements.length == 4) {
                         final String paramsString = connection.getURL().getQuery();
-                        function = slurp(connection.getRequestInputStream());
+                        JsFunctionSource = slurp(connection.getRequestInputStream());
                         try {
                             if (paramsString != null) params = splitQuery(paramsString);
                         } catch (UnsupportedEncodingException e) {
@@ -1934,8 +1934,7 @@ public class Router implements Database.ChangeListener {
                     } else {
                         //take the function from the input stream (debug mode)
                         final String scriptPath = url.split("appscripts/")[1].split("\\?")[0];
-                        final Map<String, Object> scripts = compiler.allAppScripts();
-                        function = getScript(scriptPath, scripts);
+                        JsFunctionSource = compiler.getJsSourceCode(scriptPath);
 
                         if ("POST".equals(method)) {
                             try {
@@ -1970,7 +1969,7 @@ public class Router implements Database.ChangeListener {
             final CountDownLatch jsFinishedLatch = new CountDownLatch(1);
 
             final AtomicBoolean jsErrorOccurredOrReturned = new AtomicBoolean();
-            compiler.runScript(function, params, url, new OnScriptExecutedCallBack() {
+            compiler.runScript(JsFunctionSource, params, url, new OnScriptExecutedCallBack() {
 
                 @Override
                 protected void onSuccessResult(Object resultObj) {
