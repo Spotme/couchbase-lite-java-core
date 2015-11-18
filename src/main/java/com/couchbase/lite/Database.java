@@ -80,7 +80,14 @@ public final class Database {
     private SQLiteStorageEngine database;
 
     private boolean open = false;
-    private int transactionLevel = 0;
+    static class TransactionLevel extends ThreadLocal<Integer> {
+        @Override
+        protected Integer initialValue() {
+            return 0;
+        }
+    }
+
+    private TransactionLevel transactionLevel = new TransactionLevel();
 
     /**
      * @exclude
@@ -1251,7 +1258,6 @@ public final class Database {
             database.close();
         }
         open = false;
-        transactionLevel = 0;
         return true;
     }
 
@@ -1304,14 +1310,37 @@ public final class Database {
     /**
      * Begins a database transaction. Transactions can nest.
      * Every beginTransaction() must be balanced by a later endTransaction()
+     *
+     * Notes: 1. SQLiteDatabase.beginTransaction() supported nested transaction. But, in case
+     *           nested transaction rollbacked, it also rollbacks outer transaction too.
+     *           This is not ideal behavior for CBL
+     *        2. SAVEPOINT...RELEASE supports nested transaction. But Android API 14 and 15,
+     *           it throws Exception. I assume it is Android bug. As CBL need to support from API 10
+     *           . So it does not work for CBL.
+     *        3. Using Transaction for outer/1st level of transaction and inner/2nd level of transaction
+     *           works with CBL requirement.
+     *        4. CBL Android and Java uses Thread, So it is better to use SQLiteDatabase.beginTransaction()
+     *           for outer/1st level transaction. if we use BEGIN...COMMIT and SAVEPOINT...RELEASE,
+     *           we need to implement wrapper of BEGIN...COMMIT and SAVEPOINT...RELEASE to be
+     *           Thread-safe.
+     *
      * @exclude
      */
     @InterfaceAudience.Private
     public boolean beginTransaction() {
+        int tLevel = transactionLevel.get();
+        Log.d(Log.TAG_DATABASE, "[Database.beginTransaction()] Database=" + this + ", SQLiteStorageEngine=" + database + ", transactionLevel=" + transactionLevel + ", currentThread=" + Thread.currentThread());
         try {
-            database.beginTransaction();
-            ++transactionLevel;
-            Log.i(Log.TAG, "%s Begin transaction (level %d)", Thread.currentThread().getName(), transactionLevel);
+            // Outer (level 0)  transaction. Use SQLiteDatabase.beginTransaction()
+            if (tLevel == 0) {
+                database.beginTransaction();
+            }
+            // Inner (level 1 or higher) transaction. Use SQLite's SAVEPOINT
+            else {
+                database.execSQL("SAVEPOINT cbl_" + Integer.toString(tLevel));
+            }
+            Log.i(Log.TAG, "%s Begin transaction (level %d)", Thread.currentThread().getName(), tLevel);
+            transactionLevel.set(++tLevel);
         } catch (SQLException e) {
             Log.e(Database.TAG, Thread.currentThread().getName() + " Error calling beginTransaction()", e);
             return false;
@@ -1327,27 +1356,50 @@ public final class Database {
      */
     @InterfaceAudience.Private
     public boolean endTransaction(boolean commit) {
+        int tLevel = transactionLevel.get();
 
-        assert(transactionLevel > 0);
+        assert (tLevel > 0);
 
-        if(commit) {
-            Log.i(Log.TAG, "%s Committing transaction (level %d)", Thread.currentThread().getName(), transactionLevel);
-            database.setTransactionSuccessful();
-            database.endTransaction();
-        }
-        else {
-            Log.i(Log.TAG, "%s CANCEL transaction (level %d)", Thread.currentThread().getName(), transactionLevel);
-            try {
+        transactionLevel.set(--tLevel);
+
+        // Outer (level 0) transaction. Use SQLiteDatabase.setTransactionSuccessful() and SQLiteDatabase.endTransaction()
+        if (tLevel == 0) {
+            if (commit) {
+                Log.i(Log.TAG, "%s Committing transaction (level %d)", Thread.currentThread().getName(), tLevel);
+                database.setTransactionSuccessful();
                 database.endTransaction();
+            } else {
+                Log.i(Log.TAG, "%s CANCEL transaction (level %d)", Thread.currentThread().getName(), tLevel);
+                try {
+                    database.endTransaction();
+                } catch (SQLException e) {
+                    Log.e(Database.TAG, Thread.currentThread().getName() + " Error calling endTransaction()", e);
+                    return false;
+                }
+            }
+        }
+        // Inner (level 1 or higher) transaction: Use SQLite's ROLLBACK and RELEASE
+        else {
+            if (commit) {
+                Log.i(Log.TAG, "%s Committing transaction (level %d)", Thread.currentThread().getName(), tLevel);
+            } else {
+                Log.i(Log.TAG, "%s CANCEL transaction (level %d)", Thread.currentThread().getName(), tLevel);
+                try {
+                    database.execSQL(";ROLLBACK TO cbl_" + Integer.toString(tLevel));
+                } catch (SQLException e) {
+                    Log.e(Database.TAG, Thread.currentThread().getName() + " Error calling endTransaction()", e);
+                    return false;
+                }
+            }
+            try {
+                database.execSQL("RELEASE cbl_" + Integer.toString(tLevel));
             } catch (SQLException e) {
                 Log.e(Database.TAG, Thread.currentThread().getName() + " Error calling endTransaction()", e);
                 return false;
             }
         }
 
-        --transactionLevel;
         postChangeNotifications();
-
 
         return true;
     }
@@ -1637,7 +1689,7 @@ public final class Database {
      */
     @InterfaceAudience.Private
     public RevisionInternal loadRevisionBody(RevisionInternal rev, EnumSet<TDContentOptions> contentOptions) throws CouchbaseLiteException {
-        if(rev.getBody() != null && contentOptions == EnumSet.noneOf(Database.TDContentOptions.class) && rev.getSequence() != 0) {
+        if(rev.getBody() != null && contentOptions == EnumSet.noneOf(TDContentOptions.class) && rev.getSequence() != 0) {
             return rev;
         }
 
@@ -3452,10 +3504,11 @@ public final class Database {
 
     @InterfaceAudience.Private
     private void postChangeNotifications() {
+        int tLevel = transactionLevel.get();
         // This is a 'while' instead of an 'if' because when we finish posting notifications, there
         // might be new ones that have arrived as a result of notification handlers making document
         // changes of their own (the replicator manager will do this.) So we need to check again.
-        while (transactionLevel == 0 && isOpen() && !postingChangeNotifications
+        while (tLevel == 0 && isOpen() && !postingChangeNotifications
                 && changesToNotify.size() > 0)
         {
 
