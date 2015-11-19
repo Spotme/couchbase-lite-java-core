@@ -2161,7 +2161,7 @@ public class Database implements StoreDelegate {
         return store.getParentRevision(rev);
     }
 
-    protected boolean replaceUUIDs() {
+    public boolean replaceUUIDs() {
         if (store.setInfo("publicUUID", Misc.CreateUUID()) == -1) {
             return false;
         }
