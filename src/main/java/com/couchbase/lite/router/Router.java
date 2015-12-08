@@ -1934,7 +1934,12 @@ public class Router implements Database.ChangeListener {
                     } else {
                         //take the function from the input stream (debug mode)
                         final String scriptPath = url.split("appscripts/")[1].split("\\?")[0];
-                        JsFunctionSource = compiler.getJsSourceCode(scriptPath);
+                        try {
+                            JsFunctionSource = compiler.getJsSourceCode(scriptPath);
+                        } catch (IOException e) {
+                            setErrorResponse("Unable to perform _api/ call: " + e.getMessage());
+                            return new Status(Status.UNKNOWN);
+                        }
 
                         if ("POST".equals(method)) {
                             try {

@@ -1,5 +1,6 @@
 package com.couchbase.lite.appscripts;
 
+import java.io.IOException;
 import java.util.Map;
 
 /**
@@ -20,7 +21,7 @@ public interface AppScriptsExecutor {
      */
     public void runScript(final String scriptSource, final Map<String, Object> params, final String sourceName, final OnScriptExecutedCallBack callbackFunction);
 
-    String getJsSourceCode(String scriptPath);
+    String getJsSourceCode(String scriptPath) throws IOException;
 
     String getActiveEvent();
 
