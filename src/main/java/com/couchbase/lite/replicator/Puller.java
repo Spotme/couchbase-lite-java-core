@@ -243,6 +243,9 @@ public final class Puller extends Replication implements ChangeTrackerClient {
             }
             PulledRevision rev = new PulledRevision(docID, revID, deleted, db);
             rev.setRemoteSequenceID(lastSequence);
+
+            if(changes.size() > 1) rev.setConflicted(true);
+
             Log.d(Log.TAG_SYNC, "%s: adding rev to inbox %s", this, rev);
 
             Log.v(Log.TAG_SYNC, "%s: changeTrackerReceivedChange() incrementing changesCount by 1", this);
@@ -383,8 +386,7 @@ public final class Puller extends Replication implements ChangeTrackerClient {
             for (int i = 0; i < inbox.size(); i++) {
                 PulledRevision rev = (PulledRevision) inbox.get(i);
 
-                //TODO: add support for rev isConflicted
-                if (canBulkGet || (rev.getGeneration() == 1 && !rev.isDeleted())) { // &&!rev.isConflicted)
+                if (canBulkGet || (rev.getGeneration() == 1 && !rev.isDeleted() && !rev.isConflicted())) {
 
                     //optimistically pull 1st-gen revs in bulk
                     if (bulkRevsToPull == null)
@@ -867,6 +869,9 @@ public final class Puller extends Replication implements ChangeTrackerClient {
 @InterfaceAudience.Private
 class PulledRevision extends RevisionInternal {
 
+    protected String remoteSequenceID;
+    protected boolean conflicted = false;
+
     public PulledRevision(Body body, Database database) {
         super(body, database);
     }
@@ -879,8 +884,6 @@ class PulledRevision extends RevisionInternal {
         super(properties, database);
     }
 
-    protected String remoteSequenceID;
-
     public String getRemoteSequenceID() {
         return remoteSequenceID;
     }
@@ -889,4 +892,11 @@ class PulledRevision extends RevisionInternal {
         this.remoteSequenceID = remoteSequenceID;
     }
 
+    public boolean isConflicted() {
+        return conflicted;
+    }
+
+    public void setConflicted(boolean conflicted) {
+        this.conflicted = conflicted;
+    }
 }
