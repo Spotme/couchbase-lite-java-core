@@ -212,7 +212,7 @@ public final class Pusher extends Replication implements Database.ChangeListener
         RevisionList changes = db.changesSince(lastSequenceLong, options, filter);
         if(changes.size() > 0) {
             batcher.queueObjects(changes);
-            batcher.flush();
+            batcher.flushAll(true);
         }
 
         // Now listen for future changes (in continuous mode):

@@ -4,7 +4,6 @@ import com.couchbase.lite.util.Log;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -15,92 +14,181 @@ import java.util.concurrent.TimeUnit;
  * then passes objects, in groups of its capacity, to a client-supplied processor block.
  */
 public class Batcher<T> {
+    ///////////////////////////////////////////////////////////////////////////
+    // Constants
+    ///////////////////////////////////////////////////////////////////////////
+
+    private static long SMALL_DELAY_AFTER_LONG_PAUSE = 500; // in Milliseconds
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Instance Variables
+    ///////////////////////////////////////////////////////////////////////////
 
     private ScheduledExecutorService workExecutor;
-    private ScheduledFuture<?> flushFuture;
-    private int capacity;
-    private int delay;
-    private int scheduledDelay;
-    private LinkedHashSet<T> inbox;
-    private BatchProcessor<T> processor;
+    private int capacity = 0;
+    private long delay = 0;
+    private List<T> inbox = new ArrayList<T>();
+
     private boolean scheduled = false;
-    private long lastProcessedTime;
+    private long scheduledDelay = 0;
+    private ScheduledFuture pendingFuture = null;
 
-    private Runnable processNowRunnable = new Runnable() {
+    private BatchProcessor<T> processor;
+    private long lastProcessedTime = 0;
 
-        @Override
-        public void run() {
-            try {
-                processNow();
-            } catch (Exception e) {
-                // we don't want this to crash the batcher
-                com.couchbase.lite.util.Log.e(Log.TAG_SYNC, this + ": BatchProcessor throw exception", e);
-            }
-        }
-    };
+    private boolean isFlushing = false;
 
+    private final Object mutex = new Object();
+    private final Object processMutex = new Object();
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Constructors
+    ///////////////////////////////////////////////////////////////////////////
 
     /**
      * Initializes a batcher.
      *
      * @param workExecutor the work executor that performs actual work
-     * @param capacity The maximum number of objects to batch up. If the queue reaches this size, the queued objects will be sent to the processor immediately.
-     * @param delay The maximum waiting time to collect objects before processing them. In some circumstances objects will be processed sooner.
-     * @param processor The callback/block that will be called to process the objects.
+     * @param capacity     The maximum number of objects to batch up. If the queue reaches
+     *                     this size, the queued objects will be sent to the processor
+     *                     immediately.
+     * @param delay        The maximum waiting time in milliseconds to collect objects
+     *                     before processing them. In some circumstances objects will be
+     *                     processed sooner.
+     * @param processor    The callback/block that will be called to process the objects.
      */
-    public Batcher(ScheduledExecutorService workExecutor, int capacity, int delay, BatchProcessor<T> processor) {
+    public Batcher(ScheduledExecutorService workExecutor,
+                   int capacity,
+                   long delay,
+                   BatchProcessor<T> processor) {
         this.workExecutor = workExecutor;
         this.capacity = capacity;
         this.delay = delay;
         this.processor = processor;
     }
 
+    ///////////////////////////////////////////////////////////////////////////
+    // Instance Methods - Public
+    ///////////////////////////////////////////////////////////////////////////
+
     /**
-     * Adds multiple objects to the queue.
+     * Get capacity amount.
      */
-    public synchronized void queueObjects(List<T> objects) {
+    public int getCapacity() {
+        return capacity;
+    }
 
-        Log.v(Log.TAG_SYNC, "%s: queueObjects called with %d objects. ", this, objects.size());
-        if (objects.size() == 0) {
-            return;
+    /**
+     * Get delay amount.
+     */
+    public long getDelay() {
+        return delay;
+    }
+
+    /**
+     * The number of objects currently in the queue.
+     */
+    public int count() {
+        synchronized (mutex) {
+            return inbox.size();
         }
-        if (inbox == null) {
-            inbox = new LinkedHashSet<T>();
-        }
-
-        Log.v(Log.TAG_SYNC, "%s: inbox size before adding objects: %d", this, inbox.size());
-
-        inbox.addAll(objects);
-
-        scheduleWithDelay(delayToUse());
     }
 
     /**
      * Adds an object to the queue.
      */
     public void queueObject(T object) {
-        List<T> objects = Arrays.asList(object);
-        queueObjects(objects);
+        queueObjects(Arrays.asList(object));
     }
 
     /**
-     * Sends queued objects to the processor block (up to the capacity).
+     * Adds multiple objects to the queue.
      */
-    public void flush() {
-        scheduleWithDelay(delayToUse());
+    public void queueObjects(List<T> objects) {
+        if (objects == null || objects.size() == 0)
+            return;
+
+        boolean readyToProcess = false;
+        synchronized (mutex) {
+            Log.v(Log.TAG_BATCHER, "%s: queueObjects called with %d objects (current inbox size = %d)",
+                    this, objects.size(), inbox.size());
+            inbox.addAll(objects);
+            mutex.notify();
+
+            if (isFlushing) {
+                // Skip scheduling as flushing is processing all the queue objects:
+                return;
+            }
+
+            scheduleBatchProcess(false);
+
+            if (inbox.size() >= capacity && isPendingFutureReadyOrInProcessing())
+                readyToProcess = true;
+        }
+
+        if (readyToProcess) {
+            // Give work executor chance to work on a scheduled task and to obtain the
+            // mutex lock when another thread keeps adding objects to the queue fast:
+            synchronized (processMutex) {
+                try {
+                    processMutex.wait(5);
+                } catch (InterruptedException e) { }
+            }
+        }
     }
 
     /**
      * Sends _all_ the queued objects at once to the processor block.
-     * After this method returns, the queue is guaranteed to be empty.
+     * After this method returns, all inbox objects will be processed.
+     *
+     * @param waitForAllToFinish wait until all objects are processed. If set to True,
+     *                           need to make sure not to call flushAll in the same
+     *                           WorkExecutor used by the batcher as it will result to
+     *                           deadlock.
      */
-    public void flushAll() {
-        while (inbox.size() > 0) {
+    public void flushAll(boolean waitForAllToFinish) {
+        Log.e(Log.TAG_BATCHER, "%s: flushing all objects (wait=%b)", this, waitForAllToFinish);
+
+        synchronized (mutex) {
+            isFlushing = true;
             unschedule();
-            List<T> toProcess = new ArrayList<T>();
-            toProcess.addAll(inbox);
-            processor.process(toProcess);
-            lastProcessedTime = System.currentTimeMillis();
+        }
+
+        while (true) {
+            ScheduledFuture future;
+            synchronized (mutex) {
+                if (inbox.size() == 0)
+                    break; // Nothing to do
+
+                final List<T> toProcess = new ArrayList<T>(inbox);
+                inbox.clear();
+                mutex.notify();
+
+                future = workExecutor.schedule(new Runnable() {
+                    @Override
+                    public void run() {
+                        processor.process(toProcess);
+                        synchronized (Batcher.this) {
+                            lastProcessedTime = System.currentTimeMillis();
+                        }
+                    }
+                }, 0, TimeUnit.MILLISECONDS);
+            }
+
+            if (waitForAllToFinish) {
+                if (future != null && !future.isDone() && !future.isCancelled()) {
+                    try {
+                        future.get();
+                    } catch (Exception e) {
+                        Log.e(Log.TAG_BATCHER, "%s: Error while waiting for pending future " +
+                                "when flushing all items", e, this);
+                    }
+                }
+            }
+        }
+
+        synchronized (mutex) {
+            isFlushing = false;
         }
     }
 
@@ -108,118 +196,191 @@ public class Batcher<T> {
      * Empties the queue without processing any of the objects in it.
      */
     public void clear() {
-        Log.v(Log.TAG_SYNC, "%s: clear() called, setting inbox to null", this);
-        unschedule();
-        inbox = null;
-    }
-
-    public int count() {
-        synchronized(this) {
-            if(inbox == null) {
-                return 0;
-            }
-            return inbox.size();
-        }
-    }
-
-    private void processNow() {
-
-        Log.v(Log.TAG_SYNC, this + ": processNow() called");
-
-        scheduled = false;
-        List<T> toProcess = new ArrayList<T>();
-
-        synchronized (this) {
-            if (inbox == null || inbox.size() == 0) {
-                Log.v(Log.TAG_SYNC, this + ": processNow() called, but inbox is empty");
-                return;
-            } else if (inbox.size() <= capacity) {
-                Log.v(Log.TAG_SYNC, "%s: inbox.size() <= capacity, adding %d items from inbox -> toProcess", this, inbox.size());
-                toProcess.addAll(inbox);
-                inbox = null;
-            } else {
-                Log.v(Log.TAG_SYNC, "%s: processNow() called, inbox size: %d", this, inbox.size());
-                int i = 0;
-                for (T item: inbox) {
-                    toProcess.add(item);
-                    i += 1;
-                    if (i >= capacity) {
-                        break;
-                    }
-                }
-
-                for (T item : toProcess) {
-                    Log.v(Log.TAG_SYNC, "%s: processNow() removing %s from inbox", this, item);
-                    inbox.remove(item);
-                }
-
-                Log.v(Log.TAG_SYNC, "%s: inbox.size() > capacity, moving %d items from inbox -> toProcess array", this, toProcess.size());
-
-                // There are more objects left, so schedule them Real Soon:
-                scheduleWithDelay(delayToUse());
-
-            }
-
-        }
-        if(toProcess != null && toProcess.size() > 0) {
-            Log.v(Log.TAG_SYNC, "%s: invoking processor with %d items ", this, toProcess.size());
-            processor.process(toProcess);
-        } else {
-            Log.v(Log.TAG_SYNC, "%s: nothing to process", this);
-        }
-        lastProcessedTime = System.currentTimeMillis();
-
-    }
-
-    private void scheduleWithDelay(int suggestedDelay) {
-        Log.v(Log.TAG_SYNC, "%s: scheduleWithDelay called with delay: %d ms", this, suggestedDelay);
-        if (scheduled && (suggestedDelay < scheduledDelay)) {
-            Log.v(Log.TAG_SYNC, "%s: already scheduled and: %d < %d --> unscheduling", this, suggestedDelay, scheduledDelay);
+        synchronized (mutex) {
             unschedule();
-        }
-        if (!scheduled) {
-            Log.v(Log.TAG_SYNC, "not already scheduled");
-            scheduled = true;
-            scheduledDelay = suggestedDelay;
-            Log.v(Log.TAG_SYNC, "workExecutor.schedule() with delay: %d ms", suggestedDelay);
-            flushFuture = workExecutor.schedule(processNowRunnable, suggestedDelay, TimeUnit.MILLISECONDS);
+            inbox.clear();
+            mutex.notify();
         }
     }
 
-    private void unschedule() {
-        Log.v(Log.TAG_SYNC, this + ": unschedule() called");
-        scheduled = false;
-        if(flushFuture != null) {
-            boolean didCancel = flushFuture.cancel(false);
-            Log.v(Log.TAG_SYNC, "tried to cancel flushFuture, result: %s", didCancel);
-
-        } else {
-            Log.v(Log.TAG_SYNC, "flushFuture was null, doing nothing");
-        }
-    }
-
-    /*
-     * calculates the delay to use when scheduling the next batch of objects to process
-     * There is a balance required between clearing down the input queue as fast as possible
-     * and not exhausting downstream system resources such as sockets and http response buffers
-     * by processing too many batches concurrently.
+    /**
+     * Wait for the **current** items in the queue to be all processed.
+     *
+     * Note: Calling this method on the same thread as the WorkExecutor set to the batcher
+     * will result to deadlock.
      */
-    private int delayToUse() {
+    public void waitForPendingFutures() {
+        // Wait inbox to become empty:
+        Log.v(Log.TAG_BATCHER, "%s: waitForPendingFutures is called ...", this);
 
-        //initially set the delay to the default value for this Batcher
-        int delayToUse = delay;
+        while (true) {
+            ScheduledFuture future;
+            synchronized (mutex) {
+                while (!inbox.isEmpty()) {
+                    try {
+                        Log.v(Log.TAG_BATCHER, "%s: waitForPendingFutures, inbox size: %d",
+                                this, inbox.size());
+                        mutex.wait();
+                    } catch (InterruptedException e) {}
+                }
+                future = pendingFuture;
+            }
 
-        //get the time interval since the last batch completed to the current system time
-        long delta = (System.currentTimeMillis() - lastProcessedTime);
+            // Wait till ongoing computation completes:
+            if (future != null && !future.isDone() && !future.isCancelled()) {
+                try {
+                    future.get();
+                } catch (Exception e) {
+                    Log.e(Log.TAG_BATCHER, "%s: Error while waiting for pending futures", e, this);
+                }
+            }
 
-        //if the time interval is greater or equal to the default delay then set the
-        // delay so that the next batch gets scheduled to process immediately
-        if (delta >= delay) {
-            delayToUse = 0;
+            synchronized (mutex) {
+                if (inbox.isEmpty())
+                    break;
+            }
         }
 
-        Log.v(Log.TAG_SYNC, "%s: delayToUse() delta: %d, delayToUse: %d, delay: %d", this, delta, delayToUse, delay);
+        Log.v(Log.TAG_BATCHER, "%s: waitForPendingFutures done", this);
+    }
 
-        return delayToUse;
+    ///////////////////////////////////////////////////////////////////////////
+    // Instance Methods - protected or private
+    ///////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Schedule batch process based on capacity, inbox size, and last processed time.
+     * @param immediate flag to schedule the batch process immediately regardless.
+     */
+    private void scheduleBatchProcess(boolean immediate) {
+        synchronized (mutex) {
+            if (inbox.size() == 0)
+                return;
+
+            // Schedule the processing. To improve latency, if we haven't processed anything
+            // in at least our delay time, rush these object(s) through a minimum delay:
+            long suggestedDelay = 0;
+            if (!immediate && inbox.size() < capacity) {
+                // Check with the last processed time:
+                if (System.currentTimeMillis() - lastProcessedTime < delay)
+                    suggestedDelay = delay;
+                else {
+                    // Note: iOS schedules with 0 delay but the iOS implementation
+                    // works on the runloop which still allows the current thread
+                    // to continue queuing objects to the batcher until going out of
+                    // the runloop. Java cannot do the same so giving a small delay to
+                    // allow objects to be added to the batch if available:
+                    suggestedDelay = Math.min(SMALL_DELAY_AFTER_LONG_PAUSE, delay);
+                }
+            }
+            scheduleWithDelay(suggestedDelay);
+        }
+    }
+
+    /**
+     * Schedule the batch processing with the delay. If there is one batch currently
+     * in processing, the schedule will be ignored as after the processing is done,
+     * the next batch will be rescheduled.
+     * @param delay delay to schedule the work executor to process the next batch.
+     */
+    private void scheduleWithDelay(long delay) {
+        synchronized (mutex) {
+            if (scheduled && delay < scheduledDelay) {
+                if (isPendingFutureReadyOrInProcessing()) {
+                    // Ignore as there is one batch currently in processing or ready to be processed:
+                    Log.v(Log.TAG_BATCHER, "%s: scheduleWithDelay: %d ms, ignored as current batch " +
+                            "is ready or in process", this, delay);
+                    return;
+                }
+                unschedule();
+            }
+
+            if (!scheduled) {
+                scheduled = true;
+                scheduledDelay = delay;
+                Log.v(Log.TAG_BATCHER, "%s: scheduleWithDelay %d ms, scheduled ...", this, delay);
+                pendingFuture = workExecutor.schedule(new Runnable() {
+                    @Override
+                    public void run() {
+                        Log.v(Log.TAG_BATCHER, "%s: call processNow ...", this);
+                        processNow();
+                        Log.v(Log.TAG_BATCHER, "%s: call processNow done", this);
+                    }
+                }, scheduledDelay, TimeUnit.MILLISECONDS);
+            } else
+                Log.v(Log.TAG_BATCHER, "%s: scheduleWithDelay %d ms, ignored", this, delay);
+        }
+    }
+
+    /**
+     * Unschedule the scheduled batch processing.
+     */
+    private void unschedule() {
+        synchronized (mutex) {
+            if (pendingFuture != null && !pendingFuture.isDone() && !pendingFuture.isCancelled()) {
+                Log.v(Log.TAG_BATCHER, "%s: cancelling the pending future ...", this);
+                pendingFuture.cancel(false);
+            }
+            scheduled = false;
+        }
+    }
+
+    /**
+     * Check if the current pending future is ready to be processed or in processing.
+     * @return true if the current pending future is ready to be processed or in processing.
+     * Otherwise false. Will also return false if the current pending future is done or cancelled.
+     */
+    private boolean isPendingFutureReadyOrInProcessing() {
+        synchronized (mutex) {
+            if (pendingFuture != null && !pendingFuture.isDone() && !pendingFuture.isCancelled()) {
+                return pendingFuture.getDelay(TimeUnit.MILLISECONDS) <= 0;
+            }
+            return false;
+        }
+    }
+
+    /**
+     * This method is called by the work executor to do the batch process.
+     * The inbox items up to the batcher capacity will be taken out to process.
+     * The next batch will be rescheduled if there are still some items left in the
+     * inbox.
+     */
+    private void processNow() {
+        List<T> toProcess;
+        boolean scheduleNextBatchImmediately = false;
+        synchronized (mutex) {
+            int count = inbox.size();
+            Log.v(Log.TAG_BATCHER, "%s: processNow() called, inbox size: %d", this, count);
+            if (count == 0)
+                return;
+            else if (count <= capacity) {
+                toProcess = new ArrayList<T>(inbox);
+                inbox.clear();
+            } else {
+                toProcess = new ArrayList<T>(inbox.subList(0, capacity));
+                for (int i = 0; i < capacity; i++)
+                    inbox.remove(0);
+                scheduleNextBatchImmediately = true;
+            }
+            mutex.notify();
+        }
+
+        synchronized (processMutex) {
+            if (toProcess != null && toProcess.size() > 0) {
+                Log.v(Log.TAG_BATCHER, "%s: invoking processor %s with %d items",
+                        this, processor, toProcess.size());
+                processor.process(toProcess);
+            } else
+                Log.v(Log.TAG_BATCHER, "%s: nothing to process", this);
+
+            synchronized (mutex) {
+                lastProcessedTime = System.currentTimeMillis();
+                scheduled = false;
+                scheduleBatchProcess(scheduleNextBatchImmediately);
+                Log.v(Log.TAG_BATCHER, "%s: invoking processor done",
+                        this, processor, toProcess.size());
+            }
+            processMutex.notify();
+        }
     }
 }

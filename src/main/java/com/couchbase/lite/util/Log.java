@@ -31,6 +31,7 @@ public class Log {
      * Logging tags
      */
     public static final String TAG = "CBLite";  // default "catch-all" tag
+    public static final String TAG_BATCHER = "Batcher";
     public static final String TAG_SYNC = "Sync";
     public static final String TAG_REMOTE_REQUEST = "RemoteRequest";
     public static final String TAG_VIEW = "View";

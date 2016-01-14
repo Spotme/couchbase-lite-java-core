@@ -127,7 +127,7 @@ public final class Puller extends Replication implements ChangeTrackerClient {
         super.stop();
 
         if (downloadsToInsert != null) {
-            downloadsToInsert.flush();
+            downloadsToInsert.flushAll(true);
         }
     }
 
@@ -296,7 +296,7 @@ public final class Puller extends Replication implements ChangeTrackerClient {
 
         if (batcher != null) {
             Log.d(Log.TAG_SYNC, "%s: calling batcher.flush().  batcher.count() is %d", this, batcher.count());
-            batcher.flush();
+            batcher.flushAll(true);
         }
         if (!isContinuous()) {
             // the asyncTaskFinished needs to run on the work executor
