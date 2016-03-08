@@ -25,10 +25,10 @@
  *
  */
 
-package org.apache.http.entity.mime;
+package cz.msebera.android.httpclient.entity.mime;
 
-import org.apache.http.entity.mime.content.ContentBody;
-import org.apache.http.util.ByteArrayBuffer;
+import cz.msebera.android.httpclient.entity.mime.content.ContentBody;
+import cz.msebera.android.httpclient.util.ByteArrayBuffer;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

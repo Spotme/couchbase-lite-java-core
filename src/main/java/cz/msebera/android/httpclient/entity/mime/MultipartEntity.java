@@ -25,13 +25,13 @@
  *
  */
 
-package org.apache.http.entity.mime;
+package cz.msebera.android.httpclient.entity.mime;
 
-import org.apache.http.Header;
-import org.apache.http.HttpEntity;
-import org.apache.http.entity.mime.content.ContentBody;
-import org.apache.http.message.BasicHeader;
-import org.apache.http.protocol.HTTP;
+import cz.msebera.android.httpclient.Header;
+import cz.msebera.android.httpclient.HttpEntity;
+import cz.msebera.android.httpclient.entity.mime.content.ContentBody;
+import cz.msebera.android.httpclient.message.BasicHeader;
+import cz.msebera.android.httpclient.protocol.HTTP;
 
 import java.io.IOException;
 import java.io.InputStream;

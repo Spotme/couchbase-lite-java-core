@@ -25,7 +25,7 @@
  *
  */
 
-package org.apache.http.entity.mime;
+package cz.msebera.android.httpclient.entity.mime;
 
 import java.nio.charset.Charset;
 

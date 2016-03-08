@@ -24,13 +24,13 @@
  * <http://www.apache.org/>.
  *
  */
-package org.apache.http.impl.client.trunk;
+package cz.msebera.android.httpclient.impl.client.trunk;
 
-import org.apache.http.annotation.GuardedBy;
-import org.apache.http.annotation.ThreadSafe;
-import org.apache.http.client.CookieStore;
-import org.apache.http.cookie.Cookie;
-import org.apache.http.cookie.CookieIdentityComparator;
+import cz.msebera.android.httpclient.annotation.GuardedBy;
+import cz.msebera.android.httpclient.annotation.ThreadSafe;
+import cz.msebera.android.httpclient.client.CookieStore;
+import cz.msebera.android.httpclient.cookie.Cookie;
+import cz.msebera.android.httpclient.cookie.CookieIdentityComparator;
 
 import java.io.Serializable;
 import java.util.ArrayList;

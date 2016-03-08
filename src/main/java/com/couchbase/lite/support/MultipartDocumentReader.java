@@ -6,12 +6,12 @@ import com.couchbase.lite.Manager;
 import com.couchbase.lite.Misc;
 import com.couchbase.lite.util.Log;
 
-import org.apache.http.HttpResponse;
-import org.apache.http.util.ByteArrayBuffer;
-
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+
+import cz.msebera.android.httpclient.HttpResponse;
+import cz.msebera.android.httpclient.util.ByteArrayBuffer;
 
 public class MultipartDocumentReader implements MultipartReaderDelegate {
 

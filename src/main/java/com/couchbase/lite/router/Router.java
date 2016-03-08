@@ -35,7 +35,6 @@ import com.couchbase.lite.support.Version;
 import com.couchbase.lite.util.Log;
 import com.couchbase.lite.util.StreamUtils;
 
-import org.apache.http.client.HttpResponseException;
 import org.mozilla.javascript.NativeArray;
 
 import java.io.ByteArrayInputStream;
@@ -65,6 +64,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import cz.msebera.android.httpclient.client.HttpResponseException;
 
 public class Router implements Database.ChangeListener {
 

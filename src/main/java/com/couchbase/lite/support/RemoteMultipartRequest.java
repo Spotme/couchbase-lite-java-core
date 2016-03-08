@@ -2,15 +2,15 @@ package com.couchbase.lite.support;
 
 import com.couchbase.lite.Database;
 
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.client.methods.HttpUriRequest;
-import org.apache.http.entity.mime.MultipartEntity;
-
 import java.net.URL;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
+
+import cz.msebera.android.httpclient.client.HttpClient;
+import cz.msebera.android.httpclient.client.methods.HttpPost;
+import cz.msebera.android.httpclient.client.methods.HttpPut;
+import cz.msebera.android.httpclient.client.methods.HttpUriRequest;
+import cz.msebera.android.httpclient.entity.mime.MultipartEntity;
 
 public class RemoteMultipartRequest extends RemoteRequest {
 

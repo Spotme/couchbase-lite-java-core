@@ -2,9 +2,9 @@ package com.couchbase.lite.replicator;
 
 import com.couchbase.lite.internal.InterfaceAudience;
 
-import org.apache.http.client.HttpClient;
-
 import java.util.Map;
+
+import cz.msebera.android.httpclient.client.HttpClient;
 
 /**
  * @exclude

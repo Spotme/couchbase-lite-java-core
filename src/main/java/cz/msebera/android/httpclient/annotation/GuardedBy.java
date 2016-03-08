@@ -24,7 +24,7 @@
  * <http://www.apache.org/>.
  *
  */
-package org.apache.http.annotation;
+package cz.msebera.android.httpclient.annotation;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;

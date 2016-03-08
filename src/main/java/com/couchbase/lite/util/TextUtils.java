@@ -16,10 +16,10 @@
 
 package com.couchbase.lite.util;
 
-import org.apache.http.util.ByteArrayBuffer;
-
 import java.io.IOException;
 import java.io.InputStream;
+
+import cz.msebera.android.httpclient.util.ByteArrayBuffer;
 
 // COPY: Partially copied from android.text.TextUtils
 public class TextUtils {

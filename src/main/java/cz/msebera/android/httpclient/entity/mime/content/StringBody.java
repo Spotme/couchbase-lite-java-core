@@ -25,9 +25,9 @@
  *
  */
 
-package org.apache.http.entity.mime.content;
+package cz.msebera.android.httpclient.entity.mime.content;
 
-import org.apache.http.entity.mime.MIME;
+import cz.msebera.android.httpclient.entity.mime.MIME;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;

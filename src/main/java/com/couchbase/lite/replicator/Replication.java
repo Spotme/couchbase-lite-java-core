@@ -26,13 +26,6 @@ import com.couchbase.lite.util.Log;
 import com.couchbase.lite.util.TextUtils;
 import com.couchbase.lite.util.URIUtils;
 
-import org.apache.http.Header;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpResponseException;
-import org.apache.http.cookie.Cookie;
-import org.apache.http.entity.mime.MultipartEntity;
-import org.apache.http.impl.cookie.BasicClientCookie2;
-
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -54,6 +47,13 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import cz.msebera.android.httpclient.Header;
+import cz.msebera.android.httpclient.HttpResponse;
+import cz.msebera.android.httpclient.client.HttpResponseException;
+import cz.msebera.android.httpclient.cookie.Cookie;
+import cz.msebera.android.httpclient.entity.mime.MultipartEntity;
+import cz.msebera.android.httpclient.impl.cookie.BasicClientCookie2;
 
 /**
  * A Couchbase Lite pull or push Replication between a local and a remote Database.

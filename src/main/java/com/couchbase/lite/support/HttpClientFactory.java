@@ -1,10 +1,11 @@
 package com.couchbase.lite.support;
 
-import org.apache.http.client.CookieStore;
-import org.apache.http.client.HttpClient;
-import org.apache.http.cookie.Cookie;
 
 import java.util.List;
+
+import cz.msebera.android.httpclient.client.CookieStore;
+import cz.msebera.android.httpclient.client.HttpClient;
+import cz.msebera.android.httpclient.cookie.Cookie;
 
 public interface HttpClientFactory {
 	HttpClient getHttpClient();

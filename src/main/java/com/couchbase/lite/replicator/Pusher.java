@@ -17,11 +17,6 @@ import com.couchbase.lite.support.RemoteRequestCompletionBlock;
 import com.couchbase.lite.util.Log;
 import com.couchbase.lite.util.URIUtils;
 
-import org.apache.http.client.HttpResponseException;
-import org.apache.http.entity.mime.MultipartEntity;
-import org.apache.http.entity.mime.content.InputStreamBody;
-import org.apache.http.entity.mime.content.StringBody;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -37,6 +32,11 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.concurrent.ScheduledExecutorService;
+
+import cz.msebera.android.httpclient.client.HttpResponseException;
+import cz.msebera.android.httpclient.entity.mime.MultipartEntity;
+import cz.msebera.android.httpclient.entity.mime.content.InputStreamBody;
+import cz.msebera.android.httpclient.entity.mime.content.StringBody;
 
 /**
  * @exclude

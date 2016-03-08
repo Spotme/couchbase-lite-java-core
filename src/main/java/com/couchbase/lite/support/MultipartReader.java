@@ -1,12 +1,12 @@
 package com.couchbase.lite.support;
 
-import org.apache.http.util.ByteArrayBuffer;
-
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.StringTokenizer;
+
+import cz.msebera.android.httpclient.util.ByteArrayBuffer;
 
 public class MultipartReader {
 

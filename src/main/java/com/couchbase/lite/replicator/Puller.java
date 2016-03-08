@@ -18,9 +18,6 @@ import com.couchbase.lite.support.SequenceMap;
 import com.couchbase.lite.util.CollectionUtils;
 import com.couchbase.lite.util.Log;
 
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.HttpResponseException;
-
 import java.net.URL;
 import java.net.URLEncoder;
 import java.util.ArrayList;
@@ -32,6 +29,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import cz.msebera.android.httpclient.client.HttpClient;
+import cz.msebera.android.httpclient.client.HttpResponseException;
 
 
 /**

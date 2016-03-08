@@ -4,7 +4,7 @@ import com.couchbase.lite.storage.Cursor;
 import com.couchbase.lite.storage.SQLException;
 import com.couchbase.lite.storage.SQLiteStorageEngine;
 
-import org.apache.http.StatusLine;
+import cz.msebera.android.httpclient.StatusLine;
 
 public class Utils {
 
