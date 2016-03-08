@@ -25,7 +25,7 @@
  *
  */
 
-package cz.msebera.android.httpclient.entity.mime.content;
+package org.apache.http.entity.mime.content;
 
 /**
  * Represents common content properties.

@@ -33,9 +33,9 @@ import java.util.TreeSet;
 import java.util.concurrent.ScheduledExecutorService;
 
 import cz.msebera.android.httpclient.client.HttpResponseException;
-import cz.msebera.android.httpclient.entity.mime.MultipartEntity;
-import cz.msebera.android.httpclient.entity.mime.content.InputStreamBody;
-import cz.msebera.android.httpclient.entity.mime.content.StringBody;
+import org.apache.http.entity.mime.MultipartEntity;
+import org.apache.http.entity.mime.content.InputStreamBody;
+import org.apache.http.entity.mime.content.StringBody;
 
 /**
  * @exclude

@@ -24,13 +24,15 @@
  * <http://www.apache.org/>.
  *
  */
-package cz.msebera.android.httpclient.annotation;
+package org.apache.http.annotation;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+
+import cz.msebera.android.httpclient.annotation.NotThreadSafe;
 
 /**
  * The class to which this annotation is applied is thread-safe.  This means that

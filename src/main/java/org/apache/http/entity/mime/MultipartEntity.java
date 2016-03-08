@@ -25,11 +25,11 @@
  *
  */
 
-package cz.msebera.android.httpclient.entity.mime;
+package org.apache.http.entity.mime;
 
 import cz.msebera.android.httpclient.Header;
 import cz.msebera.android.httpclient.HttpEntity;
-import cz.msebera.android.httpclient.entity.mime.content.ContentBody;
+
 import cz.msebera.android.httpclient.message.BasicHeader;
 import cz.msebera.android.httpclient.protocol.HTTP;
 
@@ -128,13 +128,13 @@ public class MultipartEntity implements HttpEntity {
         this.dirty = true;
     }
 
-    public void addPart(final String name, final ContentBody contentBody) {
+    public void addPart(final String name, final org.apache.http.entity.mime.content.ContentBody contentBody) {
         addPart(new FormBodyPart(name, contentBody));
     }
 
     public boolean isRepeatable() {
         for (FormBodyPart part: this.multipart.getBodyParts()) {
-            ContentBody body = part.getBody();
+            org.apache.http.entity.mime.content.ContentBody body = part.getBody();
             if (body.getContentLength() < 0) {
                 return false;
             }

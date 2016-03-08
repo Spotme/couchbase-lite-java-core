@@ -25,9 +25,7 @@
  *
  */
 
-package cz.msebera.android.httpclient.entity.mime.content;
-
-import cz.msebera.android.httpclient.entity.mime.MIME;
+package org.apache.http.entity.mime.content;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -111,7 +109,7 @@ public class FileBody extends AbstractContentBody {
     }
 
     public String getTransferEncoding() {
-        return MIME.ENC_BINARY;
+        return org.apache.http.entity.mime.MIME.ENC_BINARY;
     }
 
     public String getCharset() {

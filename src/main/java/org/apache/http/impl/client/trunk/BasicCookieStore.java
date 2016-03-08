@@ -24,10 +24,8 @@
  * <http://www.apache.org/>.
  *
  */
-package cz.msebera.android.httpclient.impl.client.trunk;
+package org.apache.http.impl.client.trunk;
 
-import cz.msebera.android.httpclient.annotation.GuardedBy;
-import cz.msebera.android.httpclient.annotation.ThreadSafe;
 import cz.msebera.android.httpclient.client.CookieStore;
 import cz.msebera.android.httpclient.cookie.Cookie;
 import cz.msebera.android.httpclient.cookie.CookieIdentityComparator;
@@ -45,12 +43,12 @@ import java.util.TreeSet;
  *
  * @since 4.0
  */
-@ThreadSafe
+@org.apache.http.annotation.ThreadSafe
 public class BasicCookieStore implements CookieStore, Serializable {
 
     private static final long serialVersionUID = -7581093305228232025L;
 
-    @GuardedBy("this")
+    @org.apache.http.annotation.GuardedBy("this")
     private final TreeSet<Cookie> cookies;
 
     public BasicCookieStore() {

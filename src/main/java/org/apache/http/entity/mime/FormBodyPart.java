@@ -25,9 +25,7 @@
  *
  */
 
-package cz.msebera.android.httpclient.entity.mime;
-
-import cz.msebera.android.httpclient.entity.mime.content.ContentBody;
+package org.apache.http.entity.mime;
 
 /**
  * FormBodyPart class represents a content body that can be used as a part of multipart encoded
@@ -41,9 +39,9 @@ public class FormBodyPart {
     private final String name;
     private final Header header;
 
-    private final ContentBody body;
+    private final org.apache.http.entity.mime.content.ContentBody body;
 
-    public FormBodyPart(final String name, final ContentBody body) {
+    public FormBodyPart(final String name, final org.apache.http.entity.mime.content.ContentBody body) {
         super();
         if (name == null) {
             throw new IllegalArgumentException("Name may not be null");
@@ -64,7 +62,7 @@ public class FormBodyPart {
         return this.name;
     }
 
-    public ContentBody getBody() {
+    public org.apache.http.entity.mime.content.ContentBody getBody() {
         return this.body;
     }
 
@@ -79,7 +77,7 @@ public class FormBodyPart {
         this.header.addField(new MinimalField(name, value));
     }
 
-    protected void generateContentDisp(final ContentBody body) {
+    protected void generateContentDisp(final org.apache.http.entity.mime.content.ContentBody body) {
         StringBuilder buffer = new StringBuilder();
         buffer.append("attachment");
         if (body.getFilename() != null) {
@@ -90,7 +88,7 @@ public class FormBodyPart {
         addField(MIME.CONTENT_DISPOSITION, buffer.toString());
     }
 
-    protected void generateContentType(final ContentBody body) {
+    protected void generateContentType(final org.apache.http.entity.mime.content.ContentBody body) {
         StringBuilder buffer = new StringBuilder();
         buffer.append(body.getMimeType()); // MimeType cannot be null
         if (body.getCharset() != null) { // charset may legitimately be null
@@ -100,7 +98,7 @@ public class FormBodyPart {
         addField(MIME.CONTENT_TYPE, buffer.toString());
     }
 
-    protected void generateTransferEncoding(final ContentBody body) {
+    protected void generateTransferEncoding(final org.apache.http.entity.mime.content.ContentBody body) {
         addField(MIME.CONTENT_TRANSFER_ENC, body.getTransferEncoding()); // TE cannot be null
     }
 

@@ -25,7 +25,7 @@
  *
  */
 
-package cz.msebera.android.httpclient.entity.mime;
+package org.apache.http.entity.mime;
 
 import java.util.ArrayList;
 import java.util.Collections;

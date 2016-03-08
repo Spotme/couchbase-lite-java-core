@@ -10,7 +10,7 @@ import cz.msebera.android.httpclient.client.HttpClient;
 import cz.msebera.android.httpclient.client.methods.HttpPost;
 import cz.msebera.android.httpclient.client.methods.HttpPut;
 import cz.msebera.android.httpclient.client.methods.HttpUriRequest;
-import cz.msebera.android.httpclient.entity.mime.MultipartEntity;
+import org.apache.http.entity.mime.MultipartEntity;
 
 public class RemoteMultipartRequest extends RemoteRequest {
 

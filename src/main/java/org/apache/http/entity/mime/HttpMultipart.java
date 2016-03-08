@@ -25,9 +25,8 @@
  *
  */
 
-package cz.msebera.android.httpclient.entity.mime;
+package org.apache.http.entity.mime;
 
-import cz.msebera.android.httpclient.entity.mime.content.ContentBody;
 import cz.msebera.android.httpclient.util.ByteArrayBuffer;
 
 import java.io.ByteArrayOutputStream;
@@ -240,7 +239,7 @@ public class HttpMultipart {
     public long getTotalLength() {
         long contentLen = 0;
         for (FormBodyPart part: this.parts) {
-            ContentBody body = part.getBody();
+            org.apache.http.entity.mime.content.ContentBody body = part.getBody();
             long len = body.getContentLength();
             if (len >= 0) {
                 contentLen += len;

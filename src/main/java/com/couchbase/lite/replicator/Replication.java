@@ -52,7 +52,7 @@ import cz.msebera.android.httpclient.Header;
 import cz.msebera.android.httpclient.HttpResponse;
 import cz.msebera.android.httpclient.client.HttpResponseException;
 import cz.msebera.android.httpclient.cookie.Cookie;
-import cz.msebera.android.httpclient.entity.mime.MultipartEntity;
+import org.apache.http.entity.mime.MultipartEntity;
 import cz.msebera.android.httpclient.impl.cookie.BasicClientCookie2;
 
 /**
