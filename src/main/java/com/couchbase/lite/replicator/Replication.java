@@ -141,6 +141,21 @@ public abstract class Replication {
         REPLICATION_ACTIVE
     }
 
+    /**
+     * Encodes the given document id for use in an URI.
+     * <p>
+     * Avoids encoding the slash in _design documents since it may cause a 301 redirect.
+     */
+    /* package */
+    String encodeDocumentId(String docId) {
+        if (docId.startsWith("_design/")) {
+            // http://docs.couchdb.org/en/1.6.1/http-api.html#cap-/{db}/_design/{ddoc}
+            String designDocId = docId.substring("_design/".length());
+            return "_design/".concat(URIUtils.encode(designDocId));
+        } else {
+            return URIUtils.encode(docId);
+        }
+    }
 
     /**
      * Private Constructor

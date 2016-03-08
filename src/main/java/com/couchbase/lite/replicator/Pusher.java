@@ -15,7 +15,6 @@ import com.couchbase.lite.internal.RevisionInternal;
 import com.couchbase.lite.support.HttpClientFactory;
 import com.couchbase.lite.support.RemoteRequestCompletionBlock;
 import com.couchbase.lite.util.Log;
-import com.couchbase.lite.util.URIUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -532,7 +531,7 @@ public final class Pusher extends Replication implements Database.ChangeListener
             return false;
         }
 
-        String path = String.format("/%s?new_edits=false", revision.getDocId());
+        String path = String.format("/%s?new_edits=false", encodeDocumentId(revision.getDocId()));
 
         Log.d(Log.TAG_SYNC, "Uploading multipart request.  Revision: %s", revision);
 
@@ -590,7 +589,7 @@ public final class Pusher extends Replication implements Database.ChangeListener
         Log.v(Log.TAG_SYNC, "%s | %s: uploadJsonRevision() calling asyncTaskStarted()", this, Thread.currentThread());
 
         asyncTaskStarted();
-        String path = String.format("/%s?new_edits=false", URIUtils.encode(rev.getDocId()));
+        String path = String.format("/%s?new_edits=false", encodeDocumentId(rev.getDocId()));
         sendAsyncRequest("PUT",
         path,
         rev.getProperties(),

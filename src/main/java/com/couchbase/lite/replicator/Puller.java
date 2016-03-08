@@ -17,9 +17,9 @@ import com.couchbase.lite.support.RemoteRequestCompletionBlock;
 import com.couchbase.lite.support.SequenceMap;
 import com.couchbase.lite.util.CollectionUtils;
 import com.couchbase.lite.util.Log;
+import com.couchbase.lite.util.URIUtils;
 
 import java.net.URL;
-import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -494,7 +494,11 @@ public final class Puller extends Replication implements ChangeTrackerClient {
         // Construct a query. We want the revision history, and the bodies of attachments that have
         // been added since the latest revisions we have locally.
         // See: http://wiki.apache.org/couchdb/HTTP_Document_API#Getting_Attachments_With_a_Document
-        StringBuilder path = new StringBuilder("/" + URLEncoder.encode(rev.getDocId()) + "?rev=" + URLEncoder.encode(rev.getRevId()) + "&revs=true&attachments=true");
+        StringBuilder path = new StringBuilder("/")
+                .append(encodeDocumentId(rev.getDocId()))
+                .append("?rev=").append(URIUtils.encode((rev.getRevId())))
+                .append("&revs=true&attachments=true");
+
         List<String> knownRevs = knownCurrentRevIDs(rev);
         if (knownRevs == null) {
             Log.w(Log.TAG_SYNC, "knownRevs == null, something is wrong, possibly the replicator has shut down");
@@ -859,7 +863,7 @@ public final class Puller extends Replication implements ChangeTrackerClient {
         } catch (Exception e) {
             Log.w(Log.TAG_SYNC, "Unable to serialize json", e);
         }
-        return URLEncoder.encode(new String(json));
+        return URIUtils.encode(new String(json));
     }
 }
 
