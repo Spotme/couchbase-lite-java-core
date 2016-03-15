@@ -445,6 +445,7 @@ public final class View {
 
     int added = 0;
 
+    //TODO: Avoid doing another "view calculation"  of the same view if it's already in progress: use lock per "view name"
     /**
      * Updates the view's index (incrementally) if necessary.
      * @return 200 if updated, 304 if already up-to-date, else an error code
@@ -687,10 +688,14 @@ public final class View {
 
             }
 
+            //XXX implement bulk doc processing (put some data in 30 seconds, return and then keep adding in background until fully done).
+            // + if it will be implemented -> think about the case when view is changed and we need to stop doing background data processing.
+            boolean tasksFinishedInTime = false;
             try {
                 taskExecutor.shutdown();
-                taskExecutor.awaitTermination(30, TimeUnit.SECONDS);
+                tasksFinishedInTime = taskExecutor.awaitTermination(30, TimeUnit.MINUTES);
             } catch (InterruptedException e) {
+                tasksFinishedInTime = false;
                 e.printStackTrace();
             }
 
