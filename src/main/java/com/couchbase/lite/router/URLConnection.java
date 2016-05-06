@@ -1,8 +1,10 @@
 package com.couchbase.lite.router;
 
 
+import com.couchbase.lite.Manager;
 import com.couchbase.lite.internal.Body;
 import com.couchbase.lite.util.Log;
+import com.fasterxml.jackson.core.JsonProcessingException;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -256,7 +258,16 @@ public class URLConnection extends HttpURLConnection {
     }
 
     public InputStream getResponseInputStream() {
-        if (this.getResponseBody() != null && this.getResponseBody().getJson() != null) {
+        if (this.getResponseObject() != null) {
+            ByteArrayInputStream bais = null;
+            try {
+                bais = new ByteArrayInputStream(Manager.getObjectMapper().writeValueAsBytes(this.getResponseObject()));
+                this.setResponseInputStream(bais);
+            } catch (JsonProcessingException e) {
+                e.printStackTrace();
+            }
+
+        } else if (this.getResponseBody() != null && this.getResponseBody().getJson() != null) {
             ByteArrayInputStream bais = new ByteArrayInputStream(this.getResponseBody().getJson());
             this.setResponseInputStream(bais);
         }
