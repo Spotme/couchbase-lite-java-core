@@ -1,5 +1,7 @@
 package com.couchbase.lite.appscripts;
 
+import com.getsentry.raven.Raven;
+
 import org.mozilla.javascript.RhinoException;
 import org.mozilla.javascript.Undefined;
 
@@ -15,12 +17,22 @@ public abstract class OnScriptExecutedCallBack {
      */
     final Threader threader;
 
+    /**
+     * Raven to report appscirpts errors to Sentry (if set).
+     */
+    Raven raven;
+
     public OnScriptExecutedCallBack(Threader threader) {
         this.threader = threader;
     }
 
     public OnScriptExecutedCallBack() {
         this(DefaultThreader.getInstance());
+    }
+
+
+    public void setRaven(Raven raven) {
+        this.raven = raven;
     }
 
     /**
@@ -92,14 +104,19 @@ public abstract class OnScriptExecutedCallBack {
         final Runnable onErrorResult = new Runnable() {
             @Override
             public void run() {
+                final Throwable jsError;
                 if (jsErrorObj instanceof RhinoException) {
                     final RhinoException rhinoException = (RhinoException) jsErrorObj;
-                    onErrorResult(new RuntimeException(rhinoException.getMessage() + " : \n" + rhinoException.getScriptStackTrace() + '\n', rhinoException));
+                    jsError = new RuntimeException(rhinoException.getMessage() + " : \n" + rhinoException.getScriptStackTrace() + '\n', rhinoException);
                 } else if (jsErrorObj instanceof Throwable) {
-                    onErrorResult((Throwable) jsErrorObj);
+                    jsError = (Throwable) jsErrorObj;
                 } else {
-                    onErrorResult(new RuntimeException("AppScripts function has returned an error: " + RhinoUtils.toJson(jsErrorObj, true)));
+                    jsError = new RuntimeException("AppScripts function has returned an error: " + RhinoUtils.toJson(jsErrorObj, true));
                 }
+
+                if (raven != null) raven.sendException(jsError);
+
+                onErrorResult(jsError);
             }
         };
 
