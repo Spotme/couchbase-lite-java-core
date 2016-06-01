@@ -1,15 +1,22 @@
 package com.couchbase.lite.appscripts;
 
 import com.getsentry.raven.Raven;
+import com.getsentry.raven.event.Event.Level;
+import com.getsentry.raven.event.EventBuilder;
+import com.getsentry.raven.event.interfaces.ExceptionInterface;
 
 import org.mozilla.javascript.RhinoException;
 import org.mozilla.javascript.Undefined;
+
+import java.util.Map;
 
 import ro.isdc.wro.extensions.script.RhinoUtils;
 
 /**
  * Call-back, that is called when corespondent call-back function is called in JS script.
  * Usually corespondent call-back function is named done() and is last param in JS script function.
+ *
+ * If sentry data are set - reports error to Sentry AppScript project.
  */
 public abstract class OnScriptExecutedCallBack {
     /**
@@ -21,6 +28,10 @@ public abstract class OnScriptExecutedCallBack {
      * Raven to report appscirpts errors to Sentry (if set).
      */
     Raven raven;
+    private String jsSourceName;
+    private Map<String, Object> scriptParams;
+    private static final String JS_SOURCE_NAME = "script";
+    private static final String JS_SCRIPT_PARAMS = "params";
 
     public OnScriptExecutedCallBack(Threader threader) {
         this.threader = threader;
@@ -31,8 +42,10 @@ public abstract class OnScriptExecutedCallBack {
     }
 
 
-    public void setRaven(Raven raven) {
+    public void setSentryData(Raven raven, String jsSourceName, Map<String, Object> scriptParams) {
         this.raven = raven;
+        this.jsSourceName = jsSourceName;
+        this.scriptParams = scriptParams;
     }
 
     /**
@@ -114,13 +127,26 @@ public abstract class OnScriptExecutedCallBack {
                     jsError = new RuntimeException("AppScripts function has returned an error: " + RhinoUtils.toJson(jsErrorObj, true));
                 }
 
-                if (raven != null) raven.sendException(jsError);
+                reportAppScriptError(jsError);
 
                 onErrorResult(jsError);
             }
         };
 
         threader.execute(onErrorResult);
+    }
+
+    protected void reportAppScriptError(Throwable jsError) {
+        if (raven == null) return;
+
+        EventBuilder eventBuilder = new EventBuilder()
+                .withSentryInterface(new ExceptionInterface(jsError))
+                .withLevel(Level.ERROR)
+                .withTag(JS_SOURCE_NAME, jsSourceName)
+                .withExtra(JS_SCRIPT_PARAMS, RhinoUtils.toJson(scriptParams));
+
+        raven.runBuilderHelpers(eventBuilder);
+        raven.sendEvent(eventBuilder.build());
     }
 
     /**
