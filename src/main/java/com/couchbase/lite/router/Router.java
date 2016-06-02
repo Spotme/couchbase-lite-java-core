@@ -63,7 +63,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import cz.msebera.android.httpclient.client.HttpResponseException;
 
@@ -1878,7 +1878,7 @@ public class Router implements Database.ChangeListener {
     }
 
     /**
-     * api to execute appscripts
+     *  call tp _api/ to execute appscripts
      *
      * @return HTTP status (to be consistent with CouchDB API)
      *
@@ -1892,41 +1892,60 @@ public class Router implements Database.ChangeListener {
                 ? urlString
                 : urlString + "/";
 
+        try {
+            final Object resultObj = performApiCall(url, isGetRequest);
+
+            if (resultObj instanceof NativeArray) {
+                connection.setResponseBody(new Body((List) resultObj));
+            } else {
+                connection.setResponseObject(resultObj);
+            }
+
+            return new Status(Status.OK);
+        } catch (ApiCallException e) {
+            setErrorResponse(e.getMessage());
+
+            return new Status(e.httpErrorStatusCode);
+        }
+    }
+
+    /**
+     *  call-back for _api/ thru http.
+     *
+     *  Performs business logic in AppScript and return raw result from JS.
+     *
+     * @throws ApiCallException in case of wrong incoming data or at execution of _api/ call.
+     */
+    private Object performApiCall(final String url, boolean isGetRequest) throws ApiCallException {
         if (url.split("_api/").length < 2) {
-            setErrorResponse("Unable to find api version");
-            return new Status(Status.UNKNOWN);
+            throw new ApiCallException("Unable to find api version", Status.UNKNOWN);
         }
 
         final String[] elements = url.split("_api/")[1].split("/");
         final String apiVersion = elements[0];
 
         if (!"v1".equals(apiVersion)) {
-            setErrorResponse("Unable to find api version");
-            return new Status(Status.UNKNOWN);
+            throw new ApiCallException("Unable to find api version", Status.UNKNOWN);
         }
 
         if (elements.length < 3) {
-            setErrorResponse("Event id has to be provided");
-            return new Status(Status.UNKNOWN);
+            throw new ApiCallException("Event id has to be provided", Status.UNKNOWN);
         }
 
         final String eid = elements[2];
         if (!appScriptsExecutor.getActiveEvent().equals(eid)) {
-            setErrorResponse("Event not activated");
-            return new Status(Status.UNKNOWN);
+            throw new ApiCallException("Event not activated", Status.UNKNOWN);
         }
 
         if (elements.length < 4) {
-            setErrorResponse("action has to be provided (appscripts?)");
-            return new Status(Status.UNKNOWN);
+            throw new ApiCallException("action has to be provided (appscripts?)", Status.UNKNOWN);
         }
 
         String action = elements[3];
         if (action.contains("?")) action = action.split("\\?")[0];
 
         if (!"appscripts".equals(action)) {
-            setErrorResponse("Unknown action");
-            return new Status(Status.UNKNOWN);
+            throw new ApiCallException("Unknown action", Status.UNKNOWN);
         }
 
 
@@ -1948,8 +1967,7 @@ public class Router implements Database.ChangeListener {
             try {
                 JsFunctionSource = compiler.getJsSourceCode(scriptPath);
             } catch (IOException e) {
-                setErrorResponse("Unable to perform _api/ call: " + e.getMessage());
-                return new Status(Status.UNKNOWN);
+                throw new ApiCallException("Unable to perform _api/ call: " + e.getMessage(), Status.UNKNOWN);
             }
 
             if (!isGetRequest) {
@@ -1971,28 +1989,20 @@ public class Router implements Database.ChangeListener {
 
         try {
             final CountDownLatch jsFinishedLatch = new CountDownLatch(1);
+            final AtomicReference<Object> resultReference = new AtomicReference<>();
+            final AtomicReference<Throwable> errorReference = new AtomicReference<>();
 
-            final AtomicBoolean jsErrorOccurredOrReturned = new AtomicBoolean();
             compiler.runScript(JsFunctionSource, params, url, new OnScriptExecutedCallBack() {
 
                 @Override
                 protected void onSuccessResult(Object resultObj) {
-                    if (resultObj instanceof NativeArray) {
-                        connection.setResponseBody(new Body((List) resultObj));
-                    } else {
-                        connection.setResponseObject(resultObj);
-                    }
-
+                    resultReference.set(resultObj);
                     jsFinishedLatch.countDown();
                 }
 
                 @Override
                 protected void onErrorResult(Throwable error) {
-                    Log.w(Log.TAG_ROUTER, "Request to " + url + " returned with error: ", error);
-
-                    setErrorResponse(error.getMessage());
-                    jsErrorOccurredOrReturned.set(true);
-
+                    errorReference.set(error);
                     jsFinishedLatch.countDown();
                 }
 
@@ -2001,11 +2011,31 @@ public class Router implements Database.ChangeListener {
             final int maxTimeToWaitJsExecution = 30; //max wait time is randomly picked for now
             jsFinishedLatch.await(maxTimeToWaitJsExecution, TimeUnit.SECONDS);
 
-            return !jsErrorOccurredOrReturned.get()
-                    ? new Status(Status.OK)
-                    : new Status(Status.INTERNAL_SERVER_ERROR);
+            final Throwable errorFromJs = errorReference.get();
+            if (errorFromJs == null) {
+                return resultReference.get();
+            } else {
+                final String errorMsg = "Request to " + url + " returned with error: ";
+                Log.w(Log.TAG_ROUTER, errorMsg, errorFromJs);
+                throw new ApiCallException(errorMsg + errorFromJs.getMessage(), Status.INTERNAL_SERVER_ERROR);
+            }
         } catch (Exception e) {
-            return new Status(Status.DB_ERROR);
+            throw new ApiCallException("Unable to execute AppScript: " + e.getMessage(), Status.DB_ERROR);
+        }
+    }
+
+    /**
+     *
+     *  Contains info about the error at _api/ call and http error code to return.
+     *
+     * Todo replace with LocalDbException when moved out of cbl/java-core
+     */
+    public static class ApiCallException extends IOException {
+        private final int httpErrorStatusCode;
+
+        public ApiCallException(String message, int httpErrorStatusCode) {
+            super(message);
+            this.httpErrorStatusCode = httpErrorStatusCode;
         }
     }
 
