@@ -1870,19 +1870,21 @@ public class Router implements Database.ChangeListener {
 	}
 
     public Status do_POST_api(Database _db, String _docID, String _attachmentName) {
-        return api("POST");
+        return api(false);
     }
 
     public Status do_GET_api(Database _db, String _docID, String _attachmentName) {
-        return api("GET");
+        return api(true);
     }
 
     /**
      * api to execute appscripts
-     * @param method
-     * @return
+     *
+     * @return HTTP status (to be consistent with CouchDB API)
+     *
+     * implicitly sets return value thru the connection.setResponseBody() to the field of this class.
      */
-    private Status api(final String method) {
+    private Status api(final boolean isGetRequest) {
         connection.setJsRequest(true);
 
         final String urlString = connection.getURL().toString();
@@ -1895,80 +1897,76 @@ public class Router implements Database.ChangeListener {
             return new Status(Status.UNKNOWN);
         }
 
-        final AppScriptsExecutor compiler = appScriptsExecutor.newInstance();
-
         final String[] elements = url.split("_api/")[1].split("/");
         final String apiVersion = elements[0];
 
+        if (!"v1".equals(apiVersion)) {
+            setErrorResponse("Unable to find api version");
+            return new Status(Status.UNKNOWN);
+        }
+
+        if (elements.length < 3) {
+            setErrorResponse("Event id has to be provided");
+            return new Status(Status.UNKNOWN);
+        }
+
+        final String eid = elements[2];
+        if (!appScriptsExecutor.getActiveEvent().equals(eid)) {
+            setErrorResponse("Event not activated");
+            return new Status(Status.UNKNOWN);
+        }
+
+        if (elements.length < 4) {
+            setErrorResponse("action has to be provided (appscripts?)");
+            return new Status(Status.UNKNOWN);
+        }
+
+        String action = elements[3];
+        if (action.contains("?")) action = action.split("\\?")[0];
+
+        if (!"appscripts".equals(action)) {
+            setErrorResponse("Unknown action");
+            return new Status(Status.UNKNOWN);
+        }
+
+
+        final AppScriptsExecutor compiler = appScriptsExecutor.newInstance();
         String JsFunctionSource = "";
         Map<String, Object> params = new HashMap<>();
 
-        if ("v1".equals(apiVersion)) {
-            if (elements.length < 3) {
-                setErrorResponse("Event id has to be provided");
-                return new Status(Status.UNKNOWN);
-            }
-
-            final String eid = elements[2];
-            if (!appScriptsExecutor.getActiveEvent().equals(eid)) {
-                setErrorResponse("Event not activated");
-                return new Status(Status.UNKNOWN);
-            }
-
-            if (elements.length < 4) {
-                setErrorResponse("action has to be provided (appscripts?)");
-                return new Status(Status.UNKNOWN);
-            }
-            String action = elements[3];
-            if (action.contains("?")) action = action.split("\\?")[0];
-            switch (action) {
-                case "appscripts":
-                    if (elements.length == 4) {
-                        final String paramsString = connection.getURL().getQuery();
-                        JsFunctionSource = slurp(connection.getRequestInputStream());
-                        try {
-                            if (paramsString != null) params = splitQuery(paramsString);
-                        } catch (UnsupportedEncodingException e) {
-                            e.printStackTrace();
-                        }
-
-                    } else {
-                        //take the function from the input stream (debug mode)
-                        final String scriptPath = url.split("appscripts/")[1].split("\\?")[0];
-                        try {
-                            JsFunctionSource = compiler.getJsSourceCode(scriptPath);
-                        } catch (IOException e) {
-                            setErrorResponse("Unable to perform _api/ call: " + e.getMessage());
-                            return new Status(Status.UNKNOWN);
-                        }
-
-                        if ("POST".equals(method)) {
-                            try {
-                                params = Manager.getObjectMapper().readValue(connection.getRequestInputStream(), Map.class);
-                                params = (Map<String, Object>) params.get("params");
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                            }
-                        } else {
-                            final String paramsString = connection.getURL().getQuery();
-                            try {
-                                if (paramsString != null) params = splitQuery(paramsString);
-                            } catch (UnsupportedEncodingException e) {
-                                e.printStackTrace();
-                            }
-                        }
-
-                    }
-
-                    break;
-
-                default:
-                    setErrorResponse("Unknown action");
-                    return new Status(Status.UNKNOWN);
+        if (elements.length == 4) {
+            final String paramsString = connection.getURL().getQuery();
+            JsFunctionSource = slurp(connection.getRequestInputStream());
+            try {
+                if (paramsString != null) params = splitQuery(paramsString);
+            } catch (UnsupportedEncodingException e) {
+                e.printStackTrace();
             }
         } else {
-            setErrorResponse("Unable to find api version");
-            return new Status(Status.UNKNOWN);
+            //take the function from the input stream (debug mode)
+            final String scriptPath = url.split("appscripts/")[1].split("\\?")[0];
+            try {
+                JsFunctionSource = compiler.getJsSourceCode(scriptPath);
+            } catch (IOException e) {
+                setErrorResponse("Unable to perform _api/ call: " + e.getMessage());
+                return new Status(Status.UNKNOWN);
+            }
+
+            if (!isGetRequest) {
+                try {
+                    params = Manager.getObjectMapper().readValue(connection.getRequestInputStream(), Map.class);
+                    params = (Map<String, Object>) params.get("params");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            } else {
+                final String paramsString = connection.getURL().getQuery();
+                try {
+                    if (paramsString != null) params = splitQuery(paramsString);
+                } catch (UnsupportedEncodingException e) {
+                    e.printStackTrace();
+                }
+            }
         }
 
         try {
