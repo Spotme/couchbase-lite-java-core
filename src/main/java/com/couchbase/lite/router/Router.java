@@ -21,7 +21,6 @@ import com.couchbase.lite.RevisionList;
 import com.couchbase.lite.Status;
 import com.couchbase.lite.View;
 import com.couchbase.lite.View.TDViewCollation;
-import com.couchbase.lite.appscripts.AppScriptsExecutor;
 import com.couchbase.lite.auth.FacebookAuthorizer;
 import com.couchbase.lite.auth.PersonaAuthorizer;
 import com.couchbase.lite.internal.AttachmentInternal;
@@ -76,14 +75,11 @@ public class Router implements Database.ChangeListener {
     private ReplicationFilter changesFilter;
     private boolean longpoll = false;
 
-    static AppScriptsExecutor appScriptsExecutor;
-
-    //TODO set this from business logic layer to db layer.
     /**
      * This field required to be static because currently Router is not singleton and created
      * in both main app and cbl/java-listener (for no reason).
      */
-    private static HttpJsApiCallBack httpJsApiCallBack = new HttpAsApiCallBack();
+    private static HttpJsApiCallBack httpJsApiCallBack;
 
     public static String getVersionString() {
         return Version.getVersion();
@@ -1888,6 +1884,11 @@ public class Router implements Database.ChangeListener {
      * implicitly sets return value thru the connection.setResponseBody() to the field of this class.
      */
     private Status api(final boolean isGetRequest) {
+        if (httpJsApiCallBack == null) {
+            setErrorResponse("No httpJsApiCallBack set");
+            return new Status(Status.INTERNAL_SERVER_ERROR);
+        }
+
         connection.setJsRequest(true);
 
         final String urlString = connection.getURL().toString();
@@ -1968,10 +1969,6 @@ public class Router implements Database.ChangeListener {
     @InterfaceAudience.Public
     public static void setHttpJsApiCallBack(HttpJsApiCallBack httpJsApiCallBack) {
         Router.httpJsApiCallBack = httpJsApiCallBack;
-    }
-
-    public static void setAppScriptsExecutor(AppScriptsExecutor compiler) {
-        appScriptsExecutor = compiler;
     }
 
     @Override
