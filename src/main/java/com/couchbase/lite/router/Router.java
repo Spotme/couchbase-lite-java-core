@@ -22,7 +22,6 @@ import com.couchbase.lite.Status;
 import com.couchbase.lite.View;
 import com.couchbase.lite.View.TDViewCollation;
 import com.couchbase.lite.appscripts.AppScriptsExecutor;
-import com.couchbase.lite.appscripts.OnScriptExecutedCallBack;
 import com.couchbase.lite.auth.FacebookAuthorizer;
 import com.couchbase.lite.auth.PersonaAuthorizer;
 import com.couchbase.lite.internal.AttachmentInternal;
@@ -30,6 +29,7 @@ import com.couchbase.lite.internal.Body;
 import com.couchbase.lite.internal.InterfaceAudience;
 import com.couchbase.lite.internal.RevisionInternal;
 import com.couchbase.lite.replicator.Replication;
+import com.couchbase.lite.router.Router.HttpJsApiCallBack.ApiCallException;
 import com.couchbase.lite.storage.SQLException;
 import com.couchbase.lite.support.Version;
 import com.couchbase.lite.util.Log;
@@ -42,7 +42,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -55,15 +54,12 @@ import java.util.Date;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicReference;
 
 import cz.msebera.android.httpclient.client.HttpResponseException;
 
@@ -80,7 +76,14 @@ public class Router implements Database.ChangeListener {
     private ReplicationFilter changesFilter;
     private boolean longpoll = false;
 
-    private static AppScriptsExecutor appScriptsExecutor;
+    static AppScriptsExecutor appScriptsExecutor;
+
+    //TODO set this from business logic layer to db layer.
+    /**
+     * This field required to be static because currently Router is not singleton and created
+     * in both main app and cbl/java-listener (for no reason).
+     */
+    private static HttpJsApiCallBack httpJsApiCallBack = new HttpAsApiCallBack();
 
     public static String getVersionString() {
         return Version.getVersion();
@@ -1893,7 +1896,7 @@ public class Router implements Database.ChangeListener {
                 : urlString + "/";
 
         try {
-            final Object resultObj = performApiCall(url, isGetRequest);
+            final Object resultObj = httpJsApiCallBack.performApiCall(url, isGetRequest, connection);
 
             if (resultObj instanceof NativeArray) {
                 connection.setResponseBody(new Body((List) resultObj));
@@ -1910,171 +1913,24 @@ public class Router implements Database.ChangeListener {
     }
 
     /**
-     *  call-back for _api/ thru http.
-     *
-     *  Performs business logic in AppScript and return raw result from JS.
-     *
-     * @throws ApiCallException in case of wrong incoming data or at execution of _api/ call.
+     * Call-back, which handles business logic related to the _api/ call to the http Js api.
      */
-    private Object performApiCall(final String url, boolean isGetRequest) throws ApiCallException {
-        if (url.split("_api/").length < 2) {
-            throw new ApiCallException("Unable to find api version", Status.UNKNOWN);
-        }
+    public interface HttpJsApiCallBack {
+        Object performApiCall(final String url, boolean isGetRequest, URLConnection connection) throws ApiCallException;
 
-        final String[] elements = url.split("_api/")[1].split("/");
-        final String apiVersion = elements[0];
+        /**
+         *  Contains info about the error at _api/ call and http error code to return.
+         */
+        class ApiCallException extends IOException {
+            private final int httpErrorStatusCode;
 
-        if (!"v1".equals(apiVersion)) {
-            throw new ApiCallException("Unable to find api version", Status.UNKNOWN);
-        }
-
-        if (elements.length < 3) {
-            throw new ApiCallException("Event id has to be provided", Status.UNKNOWN);
-        }
-
-        final String eid = elements[2];
-        if (!appScriptsExecutor.getActiveEvent().equals(eid)) {
-            throw new ApiCallException("Event not activated", Status.UNKNOWN);
-        }
-
-        if (elements.length < 4) {
-            throw new ApiCallException("action has to be provided (appscripts?)", Status.UNKNOWN);
-        }
-
-        String action = elements[3];
-        if (action.contains("?")) action = action.split("\\?")[0];
-
-        if (!"appscripts".equals(action)) {
-            throw new ApiCallException("Unknown action", Status.UNKNOWN);
-        }
-
-
-        final AppScriptsExecutor compiler = appScriptsExecutor.newInstance();
-        String JsFunctionSource = "";
-        Map<String, Object> params = new HashMap<>();
-
-        if (elements.length == 4) {
-            final String paramsString = connection.getURL().getQuery();
-            JsFunctionSource = slurp(connection.getRequestInputStream());
-            try {
-                if (paramsString != null) params = splitQuery(paramsString);
-            } catch (UnsupportedEncodingException e) {
-                e.printStackTrace();
+            public ApiCallException(String message, int httpErrorStatusCode) {
+                super(message);
+                this.httpErrorStatusCode = httpErrorStatusCode;
             }
-        } else {
-            //take the function from the input stream (debug mode)
-            final String scriptPath = url.split("appscripts/")[1].split("\\?")[0];
-            try {
-                JsFunctionSource = compiler.getJsSourceCode(scriptPath);
-            } catch (IOException e) {
-                throw new ApiCallException("Unable to perform _api/ call: " + e.getMessage(), Status.UNKNOWN);
-            }
-
-            if (!isGetRequest) {
-                try {
-                    params = Manager.getObjectMapper().readValue(connection.getRequestInputStream(), Map.class);
-                    params = (Map<String, Object>) params.get("params");
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            } else {
-                final String paramsString = connection.getURL().getQuery();
-                try {
-                    if (paramsString != null) params = splitQuery(paramsString);
-                } catch (UnsupportedEncodingException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-
-        try {
-            final CountDownLatch jsFinishedLatch = new CountDownLatch(1);
-            final AtomicReference<Object> resultReference = new AtomicReference<>();
-            final AtomicReference<Throwable> errorReference = new AtomicReference<>();
-
-            compiler.runScript(JsFunctionSource, params, url, new OnScriptExecutedCallBack() {
-
-                @Override
-                protected void onSuccessResult(Object resultObj) {
-                    resultReference.set(resultObj);
-                    jsFinishedLatch.countDown();
-                }
-
-                @Override
-                protected void onErrorResult(Throwable error) {
-                    errorReference.set(error);
-                    jsFinishedLatch.countDown();
-                }
-
-            });
-
-            final int maxTimeToWaitJsExecution = 30; //max wait time is randomly picked for now
-            jsFinishedLatch.await(maxTimeToWaitJsExecution, TimeUnit.SECONDS);
-
-            final Throwable errorFromJs = errorReference.get();
-            if (errorFromJs == null) {
-                return resultReference.get();
-            } else {
-                final String errorMsg = "Request to " + url + " returned with error: ";
-                Log.w(Log.TAG_ROUTER, errorMsg, errorFromJs);
-                throw new ApiCallException(errorMsg + errorFromJs.getMessage(), Status.INTERNAL_SERVER_ERROR);
-            }
-        } catch (Exception e) {
-            throw new ApiCallException("Unable to execute AppScript: " + e.getMessage(), Status.DB_ERROR);
         }
     }
 
-    /**
-     *
-     *  Contains info about the error at _api/ call and http error code to return.
-     *
-     * Todo replace with LocalDbException when moved out of cbl/java-core
-     */
-    public static class ApiCallException extends IOException {
-        private final int httpErrorStatusCode;
-
-        public ApiCallException(String message, int httpErrorStatusCode) {
-            super(message);
-            this.httpErrorStatusCode = httpErrorStatusCode;
-        }
-    }
-
-    /**
-     * Converts query params to map
-     * @param url
-     * @return
-     * @throws UnsupportedEncodingException
-     */
-    public static Map<String, Object> splitQuery(String url) throws UnsupportedEncodingException {
-        final Map<String, Object> queryPairs = new LinkedHashMap<>();
-        final String[] pairs = url.split("&");
-        for (String pair : pairs) {
-            int idx = pair.indexOf("=");
-            queryPairs.put(URLDecoder.decode(pair.substring(0, idx), "UTF-8"), URLDecoder.decode(pair.substring(idx + 1), "UTF-8"));
-        }
-        return queryPairs;
-    }
-
-    /**
-     * Converts inputstream to string
-     * @param is
-     * @return
-     */
-    private static String slurp(final InputStream is) {
-        byte[] bytes = new byte[1000];
-
-        StringBuilder out = new StringBuilder();
-
-        int numRead = 0;
-        try {
-            while ((numRead = is.read(bytes)) >= 0) {
-                out.append(new String(bytes, 0, numRead));
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return out.toString();
-    }
 
     /**
      * get the script in the appscript doc according to a path
@@ -2110,6 +1966,10 @@ public class Router implements Database.ChangeListener {
     }
 
     @InterfaceAudience.Public
+    public static void setHttpJsApiCallBack(HttpJsApiCallBack httpJsApiCallBack) {
+        Router.httpJsApiCallBack = httpJsApiCallBack;
+    }
+
     public static void setAppScriptsExecutor(AppScriptsExecutor compiler) {
         appScriptsExecutor = compiler;
     }
