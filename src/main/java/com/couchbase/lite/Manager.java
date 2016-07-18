@@ -145,7 +145,8 @@ public final class Manager {
             throw new IOException(String.format("Unable to create directory for: %s", directoryFile));
         }
 
-        upgradeOldDatabaseFiles(directoryFile);
+        // Useless in our case
+//        upgradeOldDatabaseFiles(directoryFile);
         workExecutor = Executors.newSingleThreadScheduledExecutor();
     }
 
