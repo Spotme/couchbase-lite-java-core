@@ -1868,6 +1868,11 @@ public class Router implements Database.ChangeListener {
 		return new Status(Status.OK);
 	}
 
+    public Status do_GET_cleanPropertiesCache(Database _db, String _docID, String _attachmentName) {
+        View.clearPropertiesLruCache();
+        return new Status(Status.OK);
+    }
+
     public Status do_POST_api(Database _db, String _docID, String _attachmentName) {
         return api(false);
     }

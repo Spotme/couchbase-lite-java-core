@@ -27,6 +27,7 @@ import com.couchbase.lite.storage.SQLException;
 import com.couchbase.lite.storage.SQLiteStorageEngine;
 import com.couchbase.lite.support.JsonDocument;
 import com.couchbase.lite.util.Log;
+import com.couchbase.lite.util.PropertiesCache;
 import com.couchbase.lite.util.Utils;
 
 import java.util.ArrayList;
@@ -454,7 +455,9 @@ public final class View {
     @SuppressWarnings("unchecked")
     @InterfaceAudience.Private
     public void updateIndex() throws CouchbaseLiteException {
+
         Date d1 = new Date();
+
         Log.v(Log.TAG_VIEW, "Re-indexing view: %s", name);
         assert (mapBlock != null);
 
@@ -652,23 +655,43 @@ public final class View {
                     }
                 }
 
-                EnumSet<TDContentOptions> contentOptions = EnumSet.noneOf(Database.TDContentOptions.class);
-                if (noAttachments) contentOptions.add(TDContentOptions.TDNoAttachments);
-
-                RevisionInternal rev = new RevisionInternal(docId, revId, false, database);
-                rev.setSequence(sequence);
-                final  Map<String, Object> extra = database.extraPropertiesForRevision(rev, contentOptions);
-
                 final byte[] finalJson = json;
                 final long finalSequence = sequence;
+                final String finalRevId = revId;
+
+                final String lruCacheKey = docId + revId;
+                final Map<String, Object> extra;
+
+                if(getPropertiesIfInLruCache(lruCacheKey) == null) {
+
+                    EnumSet<TDContentOptions> contentOptions = EnumSet.noneOf(Database.TDContentOptions.class);
+                    if (noAttachments) contentOptions.add(TDContentOptions.TDNoAttachments);
+
+                    RevisionInternal rev = new RevisionInternal(docId, finalRevId, false, database);
+                    rev.setSequence(finalSequence);
+                    extra = database.extraPropertiesForRevision(rev, contentOptions);
+
+                } else {
+                    extra = null;
+                }
 
                 taskExecutor.execute(new Runnable() {
                     @Override
                     public void run() {
-                        final Map<String, Object> properties = database.mapJsonToObject(
-                                finalJson,
-                                extra
-                        );
+
+                        Map<String, Object> properties;
+
+                        if(getPropertiesIfInLruCache(lruCacheKey) == null) {
+                            properties = database.mapJsonToObject(
+                                    finalJson,
+                                    extra
+                            );
+
+                            addPropertiesToLruCache(lruCacheKey, properties);
+
+                        } else {
+                            properties = getPropertiesIfInLruCache(lruCacheKey);
+                        }
 
                         if (properties != null) {
                             if (!conflicts.isEmpty()) {
@@ -698,8 +721,7 @@ public final class View {
                 tasksFinishedInTime = false;
                 e.printStackTrace();
             }
-
-
+            
             for (ContentValues contentValues : inserts) {
                 database.getDatabase().insert("maps", null, contentValues);
             }
@@ -734,6 +756,28 @@ public final class View {
         }
 
     }
+
+
+    private void addPropertiesToLruCache(String key, Map<String, Object> properties) {
+        boolean result = PropertiesCache.addPropertyIfCacheIsNotFull(key,properties);
+        if (result) {
+            Log.e("PC","add properties to cache: " + result + " - cache size is " + PropertiesCache.cacheSize() );
+        } else {
+            Log.e("PC","cache is full, cache size is " + PropertiesCache.cacheSize() );
+        }
+
+    }
+
+    private Map<String, Object> getPropertiesIfInLruCache(String key) {
+        return PropertiesCache.getProperty(key);
+    }
+
+    public static void clearPropertiesLruCache() {
+        Log.e("PM","clearPropertiesLruCache, propertiesLruCache size is: " + PropertiesCache.cacheSize() + "/" + PropertiesCache.maxSize());
+        PropertiesCache.clearAll();
+        Log.e("PM","clearPropertiesLruCache, propertiesLruCache size is: " + PropertiesCache.cacheSize() + "/" + PropertiesCache.maxSize());
+    }
+
 
     /**
      * @exclude
