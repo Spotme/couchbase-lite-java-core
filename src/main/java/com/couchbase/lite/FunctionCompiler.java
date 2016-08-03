@@ -2,6 +2,7 @@ package com.couchbase.lite;
 
 import com.couchbase.lite.router.URLConnection;
 
+import java.util.List;
 import java.util.Map;
 
 public interface FunctionCompiler {
@@ -43,7 +44,7 @@ public interface FunctionCompiler {
 	/**
 	 * @param result The result of the view where this list function was invoked
 	 */
-	public void setViewResult(final Map<String, Object> result);
+	public void setViewResult(final List<Map<String, Object>> result);
 
 	/**
 	 * Invoke a show function
