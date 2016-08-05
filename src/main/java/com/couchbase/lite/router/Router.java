@@ -28,6 +28,7 @@ import com.couchbase.lite.internal.Body;
 import com.couchbase.lite.internal.InterfaceAudience;
 import com.couchbase.lite.internal.RevisionInternal;
 import com.couchbase.lite.replicator.Replication;
+import com.couchbase.lite.router.Router.HttpJsApiCallBack.ApiCallErrorResultException;
 import com.couchbase.lite.router.Router.HttpJsApiCallBack.ApiCallException;
 import com.couchbase.lite.storage.SQLException;
 import com.couchbase.lite.support.Version;
@@ -1875,10 +1876,14 @@ public class Router implements Database.ChangeListener {
             }
 
             return new Status(Status.OK);
+        } catch (ApiCallErrorResultException e) {
+            setErrorRawResponse(e.getJsErrorResult());
+
+            return new Status(e.getHttpErrorStatusCode());
         } catch (ApiCallException e) {
             setErrorResponse(e.getMessage());
 
-            return new Status(e.httpErrorStatusCode);
+            return new Status(e.getHttpErrorStatusCode());
         }
     }
 
@@ -1898,6 +1903,50 @@ public class Router implements Database.ChangeListener {
                 super(message);
                 this.httpErrorStatusCode = httpErrorStatusCode;
             }
+
+            public ApiCallException(String message, Throwable jsExecutionException, int httpErrorStatusCode) {
+                super(message + " : " + jsExecutionException.getMessage(), jsExecutionException);
+
+                this.httpErrorStatusCode = httpErrorStatusCode;
+            }
+
+            public int getHttpErrorStatusCode() {
+                return httpErrorStatusCode;
+            }
+
+        }
+
+        /**
+         * Contains raw error result, which is returned by JS function in done() method.
+         *
+         * @see ApiCallException
+         */
+        class ApiCallErrorResultException extends ApiCallException {
+
+            /**
+             * error object, passed to "done()" by JS script.
+             */
+            private final Object JsErrorResult;
+
+            public ApiCallErrorResultException(JsErrorResultProvider jsErrorResultProvider, int httpErrorStatusCode) {
+                super("Call to _api/ has returned an error : " + jsErrorResultProvider.getJsErrorResult(), httpErrorStatusCode);
+
+                this.JsErrorResult = jsErrorResultProvider.getJsErrorResult();
+            }
+
+            public Object getJsErrorResult() {
+                return JsErrorResult;
+            }
+        }
+
+        /**
+         * Provides raw JS error for returning in http response of _api/ request.
+         */
+        interface JsErrorResultProvider {
+            /**
+             * error object, passed to "done()" by JS script.
+             */
+            Object getJsErrorResult();
         }
     }
 
@@ -1925,13 +1974,21 @@ public class Router implements Database.ChangeListener {
     }
 
     /**
-     * set an error response
-     * @param message
+     * @param message error message, which will be returned in JSON in the "error" section.
      */
     private void setErrorResponse(final String message) {
-        Log.e(Log.TAG_ROUTER, message);
+        setErrorRawResponse(message);
+    }
+
+    /**
+     * @param errorResponse error result, which will be returned in JSON in the "error" section.
+     *      should be "convertible" to JSON.
+     */
+    private void setErrorRawResponse(Object errorResponse) {
+        Log.e(Log.TAG_ROUTER, errorResponse + " error at " + connection.getURL());
+
         Map<String, Object> result = new HashMap<>();
-        result.put("error", message);
+        result.put("error", errorResponse);
         connection.setResponseBody(new Body(result));
     }
 
