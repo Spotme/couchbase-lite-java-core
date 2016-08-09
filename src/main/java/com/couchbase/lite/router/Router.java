@@ -75,6 +75,7 @@ public class Router implements Database.ChangeListener {
     private boolean waiting = false;
     private ReplicationFilter changesFilter;
     private boolean longpoll = false;
+    private boolean isHeadRequest;
 
     /**
      * This field required to be static because currently Router is not singleton and created
@@ -311,7 +312,7 @@ public class Router implements Database.ChangeListener {
         // We're going to map the request into a method call using reflection based on the method and path.
         // Accumulate the method name into the string 'message':
         String method = connection.getRequestMethod();
-	    boolean isHeadRequest = "HEAD".equals(method);
+        isHeadRequest = "HEAD".equals(method);
 	    if(isHeadRequest) {
             method = "GET";
         }
@@ -1719,6 +1720,8 @@ public class Router implements Database.ChangeListener {
         }
 
         view.updateIndex();
+
+        if (isHeadRequest) return new Status(Status.OK);
 
         long lastSequenceIndexed = view.getLastSequenceIndexed();
 
