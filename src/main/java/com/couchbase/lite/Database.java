@@ -1166,6 +1166,7 @@ public final class Database {
             dbVersion = 16;
         }
 
+        boolean isNew = (dbVersion == 0);
         if (dbVersion < 17) {
             // Version 17: https://github.com/couchbase/couchbase-lite-ios/issues/615
             String upgradeSql = "CREATE INDEX maps_view_sequence ON maps(view_id, sequence); " +
@@ -1185,6 +1186,8 @@ public final class Database {
             if (!res) return false;
         }
 
+        if (!isNew)
+            optimizeSQLIndexes(); // runs ANALYZE query
 
         try {
             attachments = new BlobStore(getAttachmentStorePath(), Database.this);
@@ -1196,6 +1199,92 @@ public final class Database {
 
         open = true;
         return true;
+    }
+
+    /**
+     * https://github.com/couchbase/couchbase-lite-ios/issues/615
+     */
+    protected void optimizeSQLIndexes() {
+        Log.v(Log.TAG_DATABASE, "calls optimizeSQLIndexes()");
+        final long currentSequence = getLastSequence();
+        if (currentSequence > 0) {
+            final long lastOptimized = getLastOptimized();
+            if (lastOptimized <= currentSequence / 10) {
+                runInTransaction(new TransactionalTask() {
+                    @Override
+                    public boolean run() {
+                        Log.i(Log.TAG_DATABASE, "%s: Optimizing SQL indexes (curSeq=%d, last run at %d)",
+                                this, currentSequence, lastOptimized);
+                        database.execSQL("ANALYZE");
+                        database.execSQL("ANALYZE sqlite_master");
+                        setInfo("last_optimized", String.valueOf(currentSequence));
+                        return true;
+                    }
+                });
+            }
+        }
+    }
+
+    /**
+     * The latest sequence number used.  Every new revision is assigned a new sequence number,
+     * so this property increases monotonically as changes are made to the storageEngine. It can be
+     * used to check whether the storageEngine has changed between two points in time.
+     */
+    public long getLastSequence() {
+        String sql = "SELECT MAX(sequence) FROM revs";
+        Cursor cursor = null;
+        long result = 0;
+        try {
+            cursor = database.rawQuery(sql, null);
+            if (cursor.moveToNext()) {
+                result = cursor.getLong(0);
+            }
+        } catch (SQLException e) {
+            Log.e(TAG, "Error getting last sequence", e);
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+        return result;
+    }
+
+    private long getLastOptimized() {
+        String info = getInfo("last_optimized");
+        if (info != null) {
+            return Long.parseLong(info);
+        }
+        return 0;
+    }
+
+    public long setInfo(String key, String info) {
+        ContentValues args = new ContentValues();
+        args.put("key", key);
+        args.put("value", info);
+        if (database.insertWithOnConflict("info", null, args,
+                SQLiteStorageEngine.CONFLICT_REPLACE) == -1)
+            return Status.DB_ERROR;
+        else
+            return Status.OK;
+    }
+
+    public String getInfo(String key) {
+        String result = null;
+        Cursor cursor = null;
+        try {
+            String[] args = {key};
+            cursor = database.rawQuery("SELECT value FROM info WHERE key=?", args);
+            if (cursor.moveToNext()) {
+                result = cursor.getString(0);
+            }
+        } catch (SQLException e) {
+            Log.e(TAG, "Error querying " + key, e);
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+        return result;
     }
 
     /**
