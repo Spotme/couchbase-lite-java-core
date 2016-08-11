@@ -22,5 +22,7 @@ public interface ChangeTrackerClient {
 
     void changeTrackerCaughtUp();
 
+    void addTotalDocs(int delta);
+
 
 }

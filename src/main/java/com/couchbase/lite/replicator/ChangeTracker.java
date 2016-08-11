@@ -326,20 +326,33 @@ public class ChangeTracker implements Runnable {
                             }
                         } else {  // one-shot replications
 
-                            JsonFactory jsonFactory = Manager.getObjectMapper().getJsonFactory();
-                            JsonParser jp = jsonFactory.createJsonParser(input);
+//                            JsonFactory jsonFactory = Manager.getObjectMapper().getJsonFactory();
+//                            JsonParser jp = jsonFactory.createJsonParser(input);
+//
+//                            while (jp.nextToken() != JsonToken.START_ARRAY) {
+//                                // ignore these tokens
+//                            }
+//
+//                            while (jp.nextToken() == JsonToken.START_OBJECT) {
+//                                Map<String, Object> change = (Map) Manager.getObjectMapper().readValue(jp, Map.class);
+//                                if (!receivedChange(change)) {
+//                                    Log.w(Log.TAG_CHANGE_TRACKER, "Received unparseable change line from server: %s", change);
+//                                }
+//
+//                            }
 
-                            while (jp.nextToken() != JsonToken.START_ARRAY) {
-                                // ignore these tokens
-                            }
-
-                            while (jp.nextToken() == JsonToken.START_OBJECT) {
-                                Map<String, Object> change = (Map) Manager.getObjectMapper().readValue(jp, Map.class);
+                            // workaround to avoid total docs to replicate to grow
+                            Map res = Manager.getMapReader().readValue(input);
+                            List<Map<String, Object>> results = (List<Map<String, Object>>) res.get("results");
+                            if(client != null) client.addTotalDocs(results.size());
+                            for (Map<String, Object> change : results) {
+                                List changes = (List) change.get("changes");
+                                if (changes.size() > 1 && client != null) client.addTotalDocs(changes.size()-1);
                                 if (!receivedChange(change)) {
                                     Log.w(Log.TAG_CHANGE_TRACKER, "Received unparseable change line from server: %s", change);
                                 }
-
                             }
+
 
                             // TODO: copy this code to continuous replications section
                             if (!caughtUp) {
@@ -383,6 +396,7 @@ public class ChangeTracker implements Runnable {
     public boolean receivedChange(final Map<String,Object> change) {
         Object seq = change.get("seq");
         if(seq == null) {
+            client.addTotalDocs(-1);
             return false;
         }
         //pass the change to the client on the thread that created this change tracker

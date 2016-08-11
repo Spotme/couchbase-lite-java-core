@@ -221,16 +221,19 @@ public final class Puller extends Replication implements ChangeTrackerClient {
         String lastSequence = change.get("seq").toString();
         String docID = (String) change.get("id");
         if (docID == null) {
+            addToChangesCount(-1);
             return;
         }
 
         if (!Database.isValidDocumentId(docID)) {
+            addToChangesCount(-1);
             Log.w(Log.TAG_SYNC, "%s: Received invalid doc ID from _changes: %s", this, change);
             return;
         }
 
         boolean removed = (change.containsKey("removed") && ((Boolean) change.get("removed")).equals(Boolean.TRUE));
         if (removed && ignoreRemoved) {
+            addToChangesCount(-1);
             return;
         }
 
@@ -239,6 +242,7 @@ public final class Puller extends Replication implements ChangeTrackerClient {
         for (Map<String, Object> changeDict : changes) {
             String revID = (String) changeDict.get("rev");
             if (revID == null) {
+                addToChangesCount(-1);
                 continue;
             }
             PulledRevision rev = new PulledRevision(docID, revID, deleted, db);
@@ -251,7 +255,7 @@ public final class Puller extends Replication implements ChangeTrackerClient {
             Log.v(Log.TAG_SYNC, "%s: changeTrackerReceivedChange() incrementing changesCount by 1", this);
 
             // this is purposefully done slightly different than the ios version
-            addToChangesCount(1);
+//            addToChangesCount(1);
 
             addToInbox(rev);
         }
@@ -263,6 +267,11 @@ public final class Puller extends Replication implements ChangeTrackerClient {
 
             }
         }
+    }
+
+    @Override
+    public void addTotalDocs(int delta) {
+        addToChangesCount(delta);
     }
 
     @InterfaceAudience.Private
