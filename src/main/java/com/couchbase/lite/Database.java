@@ -949,10 +949,17 @@ public final class Database {
         database = sqliteStorageEngineFactoryDefault.createStorageEngine();
 
         // Try to open the storage engine and stop if we fail.
-        if (database == null || !database.open(path, manager.getContext(), password)) {
-            String msg = "Unable to create a storage engine, fatal error";
-            Log.e(Database.TAG, msg);
-            throw new IllegalStateException(msg);
+        if (database == null) {
+            try {
+                if (!database.open(path, manager.getContext(), password)) {
+                    String msg = "Unable to create a storage engine, fatal error";
+                    Log.e(Database.TAG, msg);
+                    throw new IllegalStateException(msg);
+                }
+
+            } catch (SQLException e) {
+                throw new IllegalStateException(e);
+            }
         }
 
         // Stuff we need to initialize every time the sqliteDb opens:
