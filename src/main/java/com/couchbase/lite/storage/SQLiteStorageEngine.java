@@ -24,7 +24,7 @@ public interface SQLiteStorageEngine {
     public static final int CONFLICT_REPLACE = 5;
 
     boolean open(String path, Context ctx);
-    boolean open(String path, Context ctx, String password);
+    boolean open(String path, Context ctx, String password) throws SQLException;
     int getVersion();
     void setVersion(int version);
     boolean isOpen();

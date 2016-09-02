@@ -950,14 +950,14 @@ public final class Database {
 
         // Try to open the storage engine and stop if we fail.
         if (database == null) {
+            final String msg = "Unable to create a storage engine, fatal error";
             try {
                 if (!database.open(path, manager.getContext(), password)) {
-                    String msg = "Unable to create a storage engine, fatal error";
                     Log.e(Database.TAG, msg);
                     throw new IllegalStateException(msg);
                 }
-
             } catch (SQLException e) {
+                Log.e(Database.TAG, msg, e);
                 throw new IllegalStateException(e);
             }
         }
