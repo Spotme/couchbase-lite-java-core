@@ -697,7 +697,7 @@ public final class View {
                 tasksFinishedInTime = taskExecutor.awaitTermination(30, TimeUnit.MINUTES);
             } catch (InterruptedException e) {
                 tasksFinishedInTime = false;
-                e.printStackTrace();
+                Log.w(Log.TAG_VIEW, "Unable to pre-calculate all views. Task is cancelled or executor is shutdown", e);
             }
 
 
