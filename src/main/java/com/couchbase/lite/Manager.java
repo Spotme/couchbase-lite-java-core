@@ -109,6 +109,14 @@ public final class Manager {
         throw new UnsupportedOperationException(detailMessage);
     }
 
+    public static void enableAllWarnLogs() {
+        Log.enableAllWarnLogs();
+    }
+
+    public static void disableAllLogs() {
+        Log.disableAllLogs();
+    }
+
     /**
      * Enable logging for a particular tag / loglevel combo
      * @param tag Used to identify the source of a log message.  It usually identifies

@@ -60,6 +60,10 @@ public class Log {
 
     static {
         enabledTags = new ConcurrentHashMap<String, Integer>();
+        enableAllWarnLogs();
+    }
+
+    public static void enableAllWarnLogs() {
         enabledTags.put(Log.TAG, WARN);
         enabledTags.put(Log.TAG_SYNC, WARN);
         enabledTags.put(Log.TAG_SYNC_ASYNC_TASK, WARN);
@@ -74,6 +78,25 @@ public class Log {
         enabledTags.put(Log.TAG_BLOB_STORE, WARN);
         enabledTags.put(Log.TAG_SYMMETRIC_KEY, WARN);
         enabledTags.put(Log.TAG_ACTION, WARN);
+        enabledTags.put(Log.TAG_BATCHER, WARN);
+    }
+
+    public static void disableAllLogs() {
+        enabledTags.put(Log.TAG, ASSERT);
+        enabledTags.put(Log.TAG_SYNC, ASSERT);
+        enabledTags.put(Log.TAG_SYNC_ASYNC_TASK, ASSERT);
+        enabledTags.put(Log.TAG_REMOTE_REQUEST, ASSERT);
+        enabledTags.put(Log.TAG_VIEW, ASSERT);
+        enabledTags.put(Log.TAG_QUERY, ASSERT);
+        enabledTags.put(Log.TAG_CHANGE_TRACKER, ASSERT);
+        enabledTags.put(Log.TAG_ROUTER, ASSERT);
+        enabledTags.put(Log.TAG_DATABASE, ASSERT);
+        enabledTags.put(Log.TAG_LISTENER, ASSERT);
+        enabledTags.put(Log.TAG_MULTI_STREAM_WRITER, ASSERT);
+        enabledTags.put(Log.TAG_BLOB_STORE, ASSERT);
+        enabledTags.put(Log.TAG_SYMMETRIC_KEY, ASSERT);
+        enabledTags.put(Log.TAG_ACTION, ASSERT);
+        enabledTags.put(Log.TAG_BATCHER, ASSERT);
     }
 
     /**
