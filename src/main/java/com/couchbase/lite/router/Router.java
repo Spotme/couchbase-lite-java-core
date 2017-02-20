@@ -964,10 +964,10 @@ public class Router implements Database.ChangeListener {
                 }
                 Map<String, Object> result = null;
                 if(status.isSuccessful()) {
-                    result = new HashMap<String, Object>();
-                    result.put("ok", true);
-                    result.put("id", docID);
-                    if (rev != null) {
+                    if (!noNewEdits) {
+                        result = new HashMap<String, Object>();
+                        result.put("ok", true);
+                        result.put("id", rev.getDocId());
                         result.put("rev", rev.getRevId());
                     }
                 } else if(allOrNothing) {
