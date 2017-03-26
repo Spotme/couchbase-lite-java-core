@@ -7,6 +7,7 @@ import com.couchbase.lite.internal.InterfaceAudience;
 import com.couchbase.lite.replicator.Puller;
 import com.couchbase.lite.replicator.Pusher;
 import com.couchbase.lite.replicator.Replication;
+import com.couchbase.lite.spotme.DbCorruptionHandler;
 import com.couchbase.lite.support.FileDirUtils;
 import com.couchbase.lite.support.HttpClientFactory;
 import com.couchbase.lite.support.Version;
@@ -79,6 +80,7 @@ public final class Manager {
     private ScheduledExecutorService workExecutor;
     private HttpClientFactory defaultHttpClientFactory;
     private Context context;
+    private DbCorruptionHandler dbCorruptionHandler;
 
     /**
      * @exclude
@@ -281,6 +283,7 @@ public final class Manager {
             //open as encrypted db
             db = getDatabaseWithoutOpeningWithoutCaching(name, mustExist, null);
             if (db != null) {
+                db.setDbCorruptionHandler(dbCorruptionHandler);
                 try {
                     boolean opened = db.open();
                     if (!opened) {
@@ -767,5 +770,8 @@ public final class Manager {
         return context;
     }
 
+    public void setDbCorruptionHandler(DbCorruptionHandler dbCorruptionHandler) {
+        this.dbCorruptionHandler = dbCorruptionHandler;
+    }
 }
 

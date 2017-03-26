@@ -17,6 +17,7 @@
 package com.couchbase.lite.storage;
 
 import com.couchbase.lite.Context;
+import com.couchbase.lite.spotme.DbCorruptionHandler;
 
 public interface SQLiteStorageEngine {
     public static final int CONFLICT_NONE = 0;
@@ -39,4 +40,6 @@ public interface SQLiteStorageEngine {
     int update(String table, ContentValues values, String whereClause, String[] whereArgs);
     int delete(String table, String whereClause, String[] whereArgs);
     void close();
+
+    void setDbCorruptionHandler(DbCorruptionHandler dbCorruptionHandler);
 }

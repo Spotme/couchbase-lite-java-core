@@ -24,6 +24,7 @@ import com.couchbase.lite.internal.RevisionInternal;
 import com.couchbase.lite.replicator.Puller;
 import com.couchbase.lite.replicator.Pusher;
 import com.couchbase.lite.replicator.Replication;
+import com.couchbase.lite.spotme.DbCorruptionHandler;
 import com.couchbase.lite.storage.ContentValues;
 import com.couchbase.lite.storage.Cursor;
 import com.couchbase.lite.storage.SQLException;
@@ -74,6 +75,7 @@ public final class Database {
     private static final int DEFAULT_MAX_REVS = Integer.MAX_VALUE;
 
     private static ReplicationFilterCompiler filterCompiler;
+    private DbCorruptionHandler dbCorruptionHandler;
 
     private String path;
     private String name;
@@ -929,6 +931,10 @@ public final class Database {
         return true;
     }
 
+    public void setDbCorruptionHandler(DbCorruptionHandler dbCorruptionHandler) {
+        this.dbCorruptionHandler = dbCorruptionHandler;
+    }
+
     /**
      * @throws IllegalStateException if unable to create a storage engine.
      * E.g. encryption key is wrong or db is not encrypted.
@@ -947,6 +953,7 @@ public final class Database {
 //        database = SQLiteStorageEngineFactory.createStorageEngine();
         SQLiteStorageEngineFactory sqliteStorageEngineFactoryDefault = manager.getContext().getSQLiteStorageEngineFactory();
         database = sqliteStorageEngineFactoryDefault.createStorageEngine();
+        database.setDbCorruptionHandler(dbCorruptionHandler);
 
         final String msg = "Unable to create a storage engine, fatal error";
         try {
