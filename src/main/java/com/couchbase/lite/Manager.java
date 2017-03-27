@@ -276,14 +276,13 @@ public final class Manager {
      * @throws IllegalStateException if unable to create a storage engine.
      * E.g. encryption key is wrong.
      */
-    private Database getDatabaseInner(String name, boolean mustExist) {
+    private synchronized Database getDatabaseInner(String name, boolean mustExist) {
         Database db = databases.get(name);
         if(db == null) {
 
             //open as encrypted db
             db = getDatabaseWithoutOpeningWithoutCaching(name, mustExist, null);
             if (db != null) {
-                db.setDbCorruptionHandler(dbCorruptionHandler);
                 try {
                     boolean opened = db.open();
                     if (!opened) {
@@ -301,6 +300,9 @@ public final class Manager {
                             return null;
                         }
                     }
+                } finally {
+                    //db could be open as encrypted or non encrypted - we must set handler only here
+                    if (db != null) db.setDbCorruptionHandler(dbCorruptionHandler);
                 }
             }
             databases.put(name, db);
