@@ -289,7 +289,7 @@ public final class Manager {
                         return null;
                     }
                 } catch (IllegalStateException e) {
-                    Log.w(Database.TAG, "Unable to open db " + name + "as encrypted. Trying without encryption", e);
+                        Log.w(Database.TAG, "Unable to open db " + name + "as encrypted. Trying without encryption", e);
 
                     //open as non encrypted db
                     db = getDatabaseWithoutOpeningWithoutCaching(name, mustExist, "");
@@ -300,13 +300,15 @@ public final class Manager {
                             return null;
                         }
                     }
-                } finally {
-                    //db could be open as encrypted or non encrypted - we must set handler only here
-                    if (db != null) db.setDbCorruptionHandler(dbCorruptionHandler);
                 }
             }
             databases.put(name, db);
         }
+
+        if (db != null) {
+            Log.i("ALEX_HANLDER", "db: " + name + ", handler is: " + db.getDbCorruptionHandler());
+        }
+
 
         return db;
     }
@@ -548,6 +550,9 @@ public final class Manager {
             return null;
         }
         db.setName(name);
+        //handler must be set before calling .open() (as it passed to inner sqlcipher db there)
+        db.setDbCorruptionHandler(dbCorruptionHandler);
+
         return db;
     }
 

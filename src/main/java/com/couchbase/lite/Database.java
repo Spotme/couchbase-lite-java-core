@@ -82,6 +82,11 @@ public final class Database {
     private SQLiteStorageEngine database;
 
     private boolean open = false;
+
+    public DbCorruptionHandler getDbCorruptionHandler() {
+        return dbCorruptionHandler;
+    }
+
     static class TransactionLevel extends ThreadLocal<Integer> {
         @Override
         protected Integer initialValue() {
