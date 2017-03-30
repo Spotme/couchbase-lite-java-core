@@ -305,11 +305,6 @@ public final class Manager {
             databases.put(name, db);
         }
 
-        if (db != null) {
-            Log.i("ALEX_HANLDER", "db: " + name + ", handler is: " + db.getDbCorruptionHandler());
-        }
-
-
         return db;
     }
 
