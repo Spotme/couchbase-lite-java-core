@@ -3983,8 +3983,8 @@ public final class Database {
 
             String docType = null;
             final HashMap<String, Object> properties = oldRev.getProperties();
-            if (properties != null && properties.containsKey("type") && properties.get("type") instanceof String)
-                docType = (String) properties.get("type");
+            if (properties != null && properties.containsKey("fp_type") && properties.get("fp_type") instanceof String)
+                docType = (String) properties.get("fp_type");
 
             long newSequence = insertRevision(newRev, docNumericID, parentSequence, true, hasAttachment, json, docType);
             if(newSequence <= 0) {
@@ -4287,7 +4287,7 @@ public final class Database {
                                throw new CouchbaseLiteException(Status.BAD_REQUEST);
                            }
                        }
-                       Object obj = rev.getObject("type");
+                       Object obj = rev.getObject("fp_type");
                        if (obj != null && obj instanceof String)
                            docType = (String) obj;
 

@@ -1673,8 +1673,11 @@ public class Router implements Database.ChangeListener {
             }
         }
 
+        String targetFpType = (String) viewProps.get("target_fp_type");
+
         View view = db.getView(viewName);
         view.setMapReduce(mapBlock, reduceBlock, "1");
+        view.setDocumentType(targetFpType);
         String collation = (String)viewProps.get("collation");
         if("raw".equals(collation)) {
             view.setCollation(TDViewCollation.TDViewCollationRaw);
