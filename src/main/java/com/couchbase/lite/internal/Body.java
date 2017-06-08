@@ -140,4 +140,7 @@ public class Body {
         return theProperties.get(key);
     }
 
+    public Object getObject(String key) {
+        return getProperties() != null ? getProperties().get(key) : null;
+    }
 }

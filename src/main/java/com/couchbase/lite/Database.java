@@ -102,6 +102,7 @@ public final class Database {
     public static final String TAG = Log.TAG;
 
     private Map<String, View> views;
+    private Map<String, String> viewDocTypes;
     private Map<String, ReplicationFilter> filters;
     private Map<String, Validator> validations;
 
@@ -362,6 +363,7 @@ public final class Database {
             Log.v(Database.TAG, "Deleting JSON of old revisions...");
             ContentValues args = new ContentValues();
             args.put("json", (String)null);
+            args.put("doc_type", (String) null);
             database.update("revs", args, "current=0", null);
         } catch (SQLException e) {
             Log.e(Database.TAG, "Error compacting", e);
@@ -1201,6 +1203,17 @@ public final class Database {
             dbVersion = 19;
             boolean res = restoreMaps(dbVersion);
             if (!res) return false;
+        }
+
+        if (dbVersion < 21) {
+            // Version 18:
+            String upgradeSql = "ALTER TABLE revs ADD COLUMN doc_type TEXT; " +
+                    "PRAGMA user_version = 21";
+            if (!initialize(upgradeSql)) {
+                database.close();
+                return false;
+            }
+            dbVersion = 21;
         }
 
         if (!isNew)
@@ -2326,6 +2339,39 @@ public final class Database {
     /** VIEWS: **/
 
     /**
+     * Set the document type for the given view name.
+     * @param docType document type
+     * @param viewName view name
+     */
+    @InterfaceAudience.Private
+    protected void setViewDocumentType(String docType, String viewName) {
+        if (viewDocTypes == null)
+            viewDocTypes = new HashMap<String, String>();
+        viewDocTypes.put(viewName, docType);
+    }
+
+    /**
+     * Get the document type for the given view name.
+     * @param viewName view name
+     * @return document type if available, otherwise returns null.
+     */
+    @InterfaceAudience.Private
+    protected String getViewDocumentType(String viewName) {
+        if (viewDocTypes == null)
+            return null;
+        return viewDocTypes.get(viewName);
+    }
+
+    /**
+     * Remove document type for the given view name.
+     * @param viewName view name
+     */
+    private void removeViewDocumentType(String viewName) {
+        if (viewDocTypes != null)
+            viewDocTypes.remove(viewName);
+    }
+
+    /**
      * @exclude
      */
     @InterfaceAudience.Private
@@ -2459,6 +2505,9 @@ public final class Database {
         } catch (SQLException e) {
             Log.e(Database.TAG, "Error deleting view", e);
         }
+
+        removeViewDocumentType(name);
+
         return result;
     }
 
@@ -3719,7 +3768,13 @@ public final class Database {
      * @exclude
      */
     @InterfaceAudience.Private
-    public long insertRevision(RevisionInternal rev, long docNumericID, long parentSequence, boolean current, boolean hasAttachments, byte[] data) {
+    public long insertRevision(RevisionInternal rev,
+                               long docNumericID,
+                               long parentSequence,
+                               boolean current,
+                               boolean hasAttachments,
+                               byte[] data,
+                               String docType) {
         long rowId = 0;
         try {
             ContentValues args = new ContentValues();
@@ -3732,6 +3787,7 @@ public final class Database {
             args.put("deleted", rev.isDeleted());
             args.put("no_attachments",!hasAttachments);
             args.put("json", data);
+            args.put("doc_type", docType);
             rowId = database.insert("revs", null, args);
             rev.setSequence(rowId);
         } catch (Exception e) {
@@ -3924,7 +3980,13 @@ public final class Database {
             //// PART III: In which the actual insertion finally takes place:
             // Now insert the rev itself:
             final boolean hasAttachment = (attachments != null && attachments.size() > 0);
-            long newSequence = insertRevision(newRev, docNumericID, parentSequence, true, hasAttachment, json);
+
+            String docType = null;
+            final HashMap<String, Object> properties = oldRev.getProperties();
+            if (properties != null && properties.containsKey("type") && properties.get("type") instanceof String)
+                docType = (String) properties.get("type");
+
+            long newSequence = insertRevision(newRev, docNumericID, parentSequence, true, hasAttachment, json, docType);
             if(newSequence <= 0) {
                 return null;
             }
@@ -3933,6 +3995,7 @@ public final class Database {
             try {
                 ContentValues args = new ContentValues();
                 args.put("current", 0);
+                args.put("doc_type", (String) null);
                 database.update("revs", args, "sequence=?", new String[] {String.valueOf(parentSequence)});
             } catch (SQLException e) {
                 Log.e(Database.TAG, "Error setting parent rev non-current", e);
@@ -4213,6 +4276,7 @@ public final class Database {
 
                     RevisionInternal newRev;
                     byte[] data = null;
+                    String docType = null;
                     boolean current = false;
                     if(i == 0) {
                         // Hey, this is the leaf revision we're inserting:
@@ -4223,6 +4287,10 @@ public final class Database {
                                throw new CouchbaseLiteException(Status.BAD_REQUEST);
                            }
                        }
+                       Object obj = rev.getObject("type");
+                       if (obj != null && obj instanceof String)
+                           docType = (String) obj;
+
                        current = true;
                     }
                     else {
@@ -4231,7 +4299,7 @@ public final class Database {
                     }
 
                     // Insert it:
-                    sequence = insertRevision(newRev, docNumericID, sequence, current, (getAttachmentsFromRevision(newRev).size() > 0), data);
+                    sequence = insertRevision(newRev, docNumericID, sequence, current, (getAttachmentsFromRevision(newRev).size() > 0), data, docType);
 
                     if(sequence <= 0) {
                         throw new CouchbaseLiteException(Status.INTERNAL_SERVER_ERROR);
@@ -4254,6 +4322,7 @@ public final class Database {
             if(localParentSequence > 0 && localParentSequence != sequence) {
                 ContentValues args = new ContentValues();
                 args.put("current", 0);
+                args.put("doc_type", (String) null);
                 String[] whereArgs = { Long.toString(localParentSequence) };
                 int numRowsChanged = 0;
                 try {

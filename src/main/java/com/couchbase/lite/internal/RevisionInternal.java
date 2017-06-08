@@ -194,6 +194,14 @@ public class RevisionInternal {
         return generationFromRevID(revId);
     }
 
+    /**
+     * in CBL_Revision.m
+     * - (id)objectForKeyedSubscript:(id)key
+     */
+    public Object getObject(String key) {
+        return body != null ? body.getObject(key) : null;
+    }
+
     public static int generationFromRevID(String revID) {
         int generation = 0;
         int dashPos = revID.indexOf("-");
