@@ -30,12 +30,12 @@ import com.couchbase.lite.util.Log;
 import com.couchbase.lite.util.Utils;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -150,8 +150,8 @@ public final class View {
      *
      * The document "type" property values this view is filtered to (nil if none.)
      */
-    public String getDocumentType() {
-        return database.getViewDocumentType(name);
+    public Collection<String> getDocumentTypes() {
+        return database.getViewDocumentTypes(name);
     }
 
     /**
@@ -159,9 +159,10 @@ public final class View {
      * is equal to its value will be passed to the map block and indexed. This can speed up indexing.
      * Just like the map block, this property is not persistent; it needs to be set at runtime before
      * the view is queried. And if its value changes, the view's version also needs to change.
+     * @param docType
      */
-    public void setDocumentType(String docType) {
-        database.setViewDocumentType(docType, name);
+    public void setDocumentType(Collection<String> docType) {
+        database.setViewDocumentTypes(docType, name);
     }
 
     /**
@@ -502,9 +503,6 @@ public final class View {
                 return;
             }
 
-            //TODO remove not-needed variables from Couchbase upstream
-            final HashSet<String> docTypes = new HashSet<String>();
-            HashMap<String, String> viewDocTypes = null;
             // First remove obsolete emitted results from the 'maps' table:
             long sequence = lastSequence;
             if (lastSequence < 0) {
@@ -581,7 +579,7 @@ public final class View {
                 }
             };
 
-            boolean checkDocTypes = getDocumentType() != null;
+            boolean checkDocTypes = !getDocumentTypes().isEmpty();
 
             // Now scan every revision added since the last time the view was
             // indexed:
@@ -591,6 +589,7 @@ public final class View {
                             + (checkDocTypes ? ", doc_type " : "")
                             + "FROM revs, docs "
                             + "WHERE sequence>? AND current!=0 AND deleted=0 "
+                            + (checkDocTypes ? "AND doc_type IN (" + getJoinedSQLQuotedStrings(getDocumentTypes()) + ") " : "")
                             + "AND revs.doc_id = docs.doc_id "
                             + "ORDER BY revs.doc_id, revid DESC", selectArgs);
 
@@ -692,11 +691,9 @@ public final class View {
                 final byte[] finalJson = json;
                 final long finalSequence = sequence;
 
-                if (checkDocTypes) {
-                    String viewDocType = getDocumentType();
-                    if (viewDocType != null && !viewDocType.equals(docType))
-                        continue; // skip; view's documentType doesn't match this doc
-                }
+                // skip; view's documentType doesn't match this doc
+                if (checkDocTypes && !getDocumentTypes().contains(docType)) continue;
+
                 taskExecutor.execute(new Runnable() {
                     @Override
                     public void run() {
@@ -768,6 +765,22 @@ public final class View {
             }
         }
 
+    }
+
+    private static String getJoinedSQLQuotedStrings(Collection<String> strings) {
+        if (strings == null || strings.isEmpty()) return "";
+
+        StringBuilder sb = new StringBuilder("'");
+        boolean first = true;
+        for (String s : strings) {
+            if (first)
+                first = false;
+            else
+                sb.append("','");
+            sb.append(s.replace("'", "''"));
+        }
+        sb.append('\'');
+        return sb.toString();
     }
 
     /**

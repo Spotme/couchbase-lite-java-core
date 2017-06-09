@@ -48,6 +48,7 @@ import java.net.URL;
 import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
@@ -1673,11 +1674,14 @@ public class Router implements Database.ChangeListener {
             }
         }
 
-        String targetFpType = (String) viewProps.get("target_fp_type");
-
         View view = db.getView(viewName);
         view.setMapReduce(mapBlock, reduceBlock, "1");
-        view.setDocumentType(targetFpType);
+
+        final Object targetFpTypesObj = viewProps.get("target_fp_types");
+        if (targetFpTypesObj instanceof Collection) {
+            view.setDocumentType((Collection<String>) targetFpTypesObj);
+        }
+
         String collation = (String)viewProps.get("collation");
         if("raw".equals(collation)) {
             view.setCollation(TDViewCollation.TDViewCollationRaw);

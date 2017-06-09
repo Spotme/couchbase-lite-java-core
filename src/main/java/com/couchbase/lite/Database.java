@@ -52,6 +52,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -102,7 +103,7 @@ public final class Database {
     public static final String TAG = Log.TAG;
 
     private Map<String, View> views;
-    private Map<String, String> viewDocTypes;
+    private Map<String, Collection<String>> viewDocTypes = new HashMap<>();;
     private Map<String, ReplicationFilter> filters;
     private Map<String, Validator> validations;
 
@@ -2340,14 +2341,12 @@ public final class Database {
 
     /**
      * Set the document type for the given view name.
-     * @param docType document type
+     * @param docTypes document types per view
      * @param viewName view name
      */
     @InterfaceAudience.Private
-    protected void setViewDocumentType(String docType, String viewName) {
-        if (viewDocTypes == null)
-            viewDocTypes = new HashMap<String, String>();
-        viewDocTypes.put(viewName, docType);
+    protected void setViewDocumentTypes(Collection<String> docTypes, String viewName) {
+        viewDocTypes.put(viewName, docTypes);
     }
 
     /**
@@ -2356,19 +2355,20 @@ public final class Database {
      * @return document type if available, otherwise returns null.
      */
     @InterfaceAudience.Private
-    protected String getViewDocumentType(String viewName) {
-        if (viewDocTypes == null)
-            return null;
-        return viewDocTypes.get(viewName);
+    protected Collection<String> getViewDocumentTypes(String viewName) {
+        final Collection<String> targetTypes = viewDocTypes.get(viewName);
+
+        return targetTypes != null
+                ? targetTypes
+                : Collections.<String>emptyList();
     }
 
     /**
      * Remove document type for the given view name.
      * @param viewName view name
      */
-    private void removeViewDocumentType(String viewName) {
-        if (viewDocTypes != null)
-            viewDocTypes.remove(viewName);
+    private void removeViewDocumentTypes(String viewName) {
+        viewDocTypes.remove(viewName);
     }
 
     /**
@@ -2506,7 +2506,7 @@ public final class Database {
             Log.e(Database.TAG, "Error deleting view", e);
         }
 
-        removeViewDocumentType(name);
+        removeViewDocumentTypes(name);
 
         return result;
     }
