@@ -579,7 +579,7 @@ public final class View {
                 }
             };
 
-            boolean checkDocTypes = !getDocumentTypes().isEmpty();
+            boolean checkDocTypes = !getDocumentTypes().isEmpty() && !database.hasDataWithoutFpType();
 
             // Now scan every revision added since the last time the view was
             // indexed:

@@ -43,8 +43,11 @@ import com.couchbase.lite.util.Utils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.Charset;
@@ -59,6 +62,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -72,6 +76,8 @@ import java.util.zip.GZIPInputStream;
  */
 public final class Database {
 
+    private static final String HASH_DATA_WITHOUT_FP_TYPE = "hash_data_without_fp_type";
+
     // Default value for maxRevTreeDepth, the max rev depth to preserve in a prune operation
     private static final int DEFAULT_MAX_REVS = Integer.MAX_VALUE;
 
@@ -81,6 +87,10 @@ public final class Database {
     private String path;
     private String name;
     private SQLiteStorageEngine database;
+    /**
+     * Stored extra DB properties. Currently only {@link #HASH_DATA_WITHOUT_FP_TYPE} is used.
+     */
+    private Properties properties;
 
     private boolean open = false;
 
@@ -421,6 +431,11 @@ public final class Database {
         File fileShm = new File(path + "-shm");
         if (fileShm.exists()) {
             fileShm.delete();
+        }
+
+        File propertiesFile = getPropertiesFile();
+        if (propertiesFile.exists()) {
+            propertiesFile.delete();
         }
 
         File attachmentsFile = new File(getAttachmentStorePath());
@@ -1214,6 +1229,19 @@ public final class Database {
                 database.close();
                 return false;
             }
+
+            Cursor cursor = null;
+            try {
+                final String countSql = "SELECT count(*) FROM revs";
+                cursor = database.rawQuery(countSql, null);
+                cursor.moveToNext();
+                final int count = cursor.getInt(0);
+
+                if (count > 0) setDataWithoutFpType(true);
+            } finally {
+                if (cursor != null) cursor.close();
+            }
+
             dbVersion = 21;
         }
 
@@ -5057,6 +5085,46 @@ public final class Database {
 
     }
 
+    public boolean hasDataWithoutFpType() {
+        if (!getPropertiesFile().exists()) return false;
+
+        return Boolean.valueOf(getProperties().getProperty(HASH_DATA_WITHOUT_FP_TYPE));
+    }
+
+    private synchronized void setDataWithoutFpType(boolean hasDataWithoutFpType) {
+        try {
+            Properties properties = getProperties();
+            properties.setProperty(HASH_DATA_WITHOUT_FP_TYPE, String.valueOf(hasDataWithoutFpType));
+
+            OutputStream propertiesFileStream = new FileOutputStream(getPropertiesFile());
+            properties.store(propertiesFileStream, "");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    private synchronized Properties getProperties() {
+        if (properties == null) {
+            properties = new Properties();
+
+            final File propertiesFile = getPropertiesFile();
+            if (propertiesFile.exists()) {
+                try {
+                    final InputStream fileStream = new FileInputStream(propertiesFile);
+                    properties.load(fileStream);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        return properties;
+    }
+
+    private File getPropertiesFile() {
+        return new File(path + "-properties");
+    }
 
     /**
      * Is the database open?
