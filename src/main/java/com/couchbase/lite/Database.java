@@ -4009,10 +4009,7 @@ public final class Database {
             // Now insert the rev itself:
             final boolean hasAttachment = (attachments != null && attachments.size() > 0);
 
-            String docType = null;
-            final HashMap<String, Object> properties = oldRev.getProperties();
-            if (properties != null && properties.containsKey("fp_type") && properties.get("fp_type") instanceof String)
-                docType = (String) properties.get("fp_type");
+            String docType = getDocType(oldRev);
 
             long newSequence = insertRevision(newRev, docNumericID, parentSequence, true, hasAttachment, json, docType);
             if(newSequence <= 0) {
@@ -4061,6 +4058,23 @@ public final class Database {
         //// EPILOGUE: A change notification is sent...
         notifyChange(newRev, winningRev, null, inConflict);
         return newRev;
+    }
+
+    /**
+     * @return doc's fp_type to match agains target_fp_types in the views.
+     */
+    private String getDocType(RevisionInternal oldRev) {
+        final HashMap<String, Object> properties = oldRev.getProperties();
+
+        //XXX: re-write with pre-condition check.
+        if (properties != null
+                && properties.containsKey("fp_type")
+                && properties.get("fp_type") instanceof String) {
+
+            return (String) properties.get("fp_type");
+        } else {
+            return null;
+        }
     }
 
     /**
@@ -4321,6 +4335,7 @@ public final class Database {
                            if(data == null) {
                                throw new CouchbaseLiteException(Status.BAD_REQUEST);
                            }
+                           docType = getDocType(rev);
                        }
                        current = true;
                     }
