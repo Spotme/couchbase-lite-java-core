@@ -135,7 +135,7 @@ public final class Attachment {
         else {
             Database db = revision.getDatabase();
             Attachment attachment = db.getAttachmentForSequence(revision.getSequence(), this.name);
-            body = attachment.getContent();
+            body = attachment.getBodyIfNew();
             return body;
         }
     }
