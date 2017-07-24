@@ -1682,6 +1682,19 @@ public class Router implements Database.ChangeListener {
             view.setDocumentType((Collection<String>) targetFpTypesObj);
         }
 
+        boolean skipAttachments;
+
+        final Object fpSkipAttachments = viewProps.get("fp_skip_attachments");
+        if (fpSkipAttachments instanceof Boolean) {
+            skipAttachments = (boolean) fpSkipAttachments;
+        } else {
+            boolean containsRequire = mapSource.contains("require");
+            boolean containsAttachments = mapSource.contains("_attachments");
+            skipAttachments = !containsRequire && !containsAttachments;
+        }
+
+        view.setSkipAttachments(skipAttachments);
+
         String collation = (String)viewProps.get("collation");
         if("raw".equals(collation)) {
             view.setCollation(TDViewCollation.TDViewCollationRaw);

@@ -52,6 +52,11 @@ public final class View {
      */
     public static final int REDUCE_BATCH_SIZE = 100;
 
+    /*
+     * Avoid to load attachments for views if not needed
+     */
+    private boolean skipAttachments;
+
     /**
      * @exclude
      */
@@ -163,6 +168,10 @@ public final class View {
      */
     public void setDocumentType(Collection<String> docType) {
         database.setViewDocumentTypes(docType, name);
+    }
+
+    public void setSkipAttachments(boolean skipAttachments) {
+        this.skipAttachments = skipAttachments;
     }
 
     /**
@@ -682,7 +691,10 @@ public final class View {
                 }
 
                 EnumSet<TDContentOptions> contentOptions = EnumSet.noneOf(Database.TDContentOptions.class);
-                if (noAttachments) contentOptions.add(TDContentOptions.TDNoAttachments);
+
+                if (noAttachments || skipAttachments) {
+                    contentOptions.add(TDContentOptions.TDNoAttachments);
+                }
 
                 RevisionInternal rev = new RevisionInternal(docId, revId, false, database);
                 rev.setSequence(sequence);

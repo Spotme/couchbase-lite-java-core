@@ -259,14 +259,6 @@ public final class Puller extends Replication implements ChangeTrackerClient {
 
             addToInbox(rev);
         }
-
-        while (revsToPull != null && revsToPull.size() > 1000) {
-            try {
-                Thread.sleep(500);  // <-- TODO: why is this here?
-            } catch (InterruptedException e) {
-
-            }
-        }
     }
 
     @Override
