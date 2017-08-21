@@ -289,7 +289,8 @@ public final class Manager {
                         return null;
                     }
                 } catch (IllegalStateException e) {
-                        Log.w(Database.TAG, "Unable to open db " + name + "as encrypted. Trying without encryption", e);
+                    //AndroidSQLiteStorageEngine.TAG is not accessible in java-core submodule
+                    Log.w("AndroidSQLiteStorageEngine", "Unable to open db " + name + " as encrypted. Trying without encryption", e);
 
                     //open as non encrypted db
                     db = getDatabaseWithoutOpeningWithoutCaching(name, mustExist, "");
