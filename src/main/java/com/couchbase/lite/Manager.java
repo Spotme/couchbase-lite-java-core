@@ -116,6 +116,7 @@ public final class Manager {
     }
 
     public static void disableAllLogs() {
+        //
         Log.disableAllLogs();
     }
 
@@ -138,7 +139,8 @@ public final class Manager {
     @InterfaceAudience.Public
     public Manager(Context context, ManagerOptions options) throws IOException {
 
-        Log.i(Database.TAG, "Starting Manager version: %s", Manager.VERSION);
+        //IMPORTANT !!!  DO NOT CALL Log.i() method here as it will block current thread for logger loading.
+//        Log.i(Database.TAG, "Starting Manager version: %s", Manager.VERSION);
 
         this.context = context;
 

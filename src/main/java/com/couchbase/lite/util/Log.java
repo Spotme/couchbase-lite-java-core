@@ -18,10 +18,14 @@ package com.couchbase.lite.util;
 
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class Log {
 
-    private static Logger logger = LoggerFactory.createLogger();
+    private static Logger logger;
+    private static CountDownLatch initLogLatch;
 
     /**
      * A map of tags and their enabled log level
@@ -61,6 +65,14 @@ public class Log {
     static {
         enabledTags = new ConcurrentHashMap<String, Integer>();
         enableAllWarnLogs();
+
+        //lazy init logger
+        new Thread() {
+            @Override
+            public void run() {
+                createLoggerBlockingThread();
+            }
+        }.start();
     }
 
     public static void enableAllWarnLogs() {
@@ -134,8 +146,8 @@ public class Log {
      * @param msg The message you would like logged.
      */
     public static void v(String tag, String msg) {
-        if (logger != null && isLoggingEnabled(tag, VERBOSE)) {
-            logger.v(tag, msg);
+        if (getLogger() != null && isLoggingEnabled(tag, VERBOSE)) {
+            getLogger().v(tag, msg);
         }
     }
 
@@ -147,8 +159,8 @@ public class Log {
      * @param tr An exception to log
      */
     public static void v(String tag, String msg, Throwable tr) {
-        if (logger != null && isLoggingEnabled(tag, VERBOSE)) {
-            logger.v(tag, msg, tr);
+        if (getLogger() != null && isLoggingEnabled(tag, VERBOSE)) {
+            getLogger().v(tag, msg, tr);
         }
     }
 
@@ -160,11 +172,11 @@ public class Log {
      * @param args Variable number of Object args to be used as params to formatString.
      */
     public static void v(String tag, String formatString, Object... args) {
-        if (logger != null && isLoggingEnabled(tag, VERBOSE)) {
+        if (getLogger() != null && isLoggingEnabled(tag, VERBOSE)) {
             try {
-                logger.v(tag, String.format(Locale.ENGLISH, formatString, args));
+                getLogger().v(tag, String.format(Locale.ENGLISH, formatString, args));
             } catch (Exception e) {
-                logger.v(tag, String.format(Locale.ENGLISH, "Unable to format log: %s", formatString), e);
+                getLogger().v(tag, String.format(Locale.ENGLISH, "Unable to format log: %s", formatString), e);
             }
         }
 
@@ -179,11 +191,11 @@ public class Log {
      * @param args Variable number of Object args to be used as params to formatString.
      */
     public static void v(String tag, String formatString, Throwable tr, Object... args) {
-        if (logger != null && isLoggingEnabled(tag, VERBOSE)) {
+        if (getLogger() != null && isLoggingEnabled(tag, VERBOSE)) {
             try {
-                logger.v(tag, String.format(Locale.ENGLISH, formatString, args), tr);
+                getLogger().v(tag, String.format(Locale.ENGLISH, formatString, args), tr);
             } catch (Exception e) {
-                logger.v(tag, String.format(Locale.ENGLISH, "Unable to format log: %s", formatString), e);
+                getLogger().v(tag, String.format(Locale.ENGLISH, "Unable to format log: %s", formatString), e);
             }
         }
     }
@@ -195,8 +207,8 @@ public class Log {
      * @param msg The message you would like logged.
      */
     public static void d(String tag, String msg) {
-        if (logger != null && isLoggingEnabled(tag, DEBUG)) {
-            logger.d(tag, msg);
+        if (getLogger() != null && isLoggingEnabled(tag, DEBUG)) {
+            getLogger().d(tag, msg);
         }
     }
 
@@ -208,8 +220,8 @@ public class Log {
      * @param tr An exception to log
      */
     public static void d(String tag, String msg, Throwable tr) {
-        if (logger != null && isLoggingEnabled(tag, DEBUG)) {
-            logger.d(tag, msg, tr);
+        if (getLogger() != null && isLoggingEnabled(tag, DEBUG)) {
+            getLogger().d(tag, msg, tr);
         }
     }
 
@@ -221,11 +233,11 @@ public class Log {
      * @param args Variable number of Object args to be used as params to formatString.
      */
     public static void d(String tag, String formatString, Object... args) {
-        if (logger != null && isLoggingEnabled(tag, DEBUG)) {
+        if (getLogger() != null && isLoggingEnabled(tag, DEBUG)) {
             try {
-                logger.d(tag, String.format(Locale.ENGLISH, formatString, args));
+                getLogger().d(tag, String.format(Locale.ENGLISH, formatString, args));
             } catch (Exception e) {
-                logger.d(tag, String.format(Locale.ENGLISH, "Unable to format log: %s", formatString), e);
+                getLogger().d(tag, String.format(Locale.ENGLISH, "Unable to format log: %s", formatString), e);
             }
         }
     }
@@ -239,11 +251,11 @@ public class Log {
      * @param args Variable number of Object args to be used as params to formatString.
      */
     public static void d(String tag, String formatString, Throwable tr, Object... args) {
-        if (logger != null && isLoggingEnabled(tag, DEBUG)) {
+        if (getLogger() != null && isLoggingEnabled(tag, DEBUG)) {
             try {
-                logger.d(tag, String.format(Locale.ENGLISH, formatString, args, tr));
+                getLogger().d(tag, String.format(Locale.ENGLISH, formatString, args, tr));
             } catch (Exception e) {
-                logger.d(tag, String.format(Locale.ENGLISH, "Unable to format log: %s", formatString), e);
+                getLogger().d(tag, String.format(Locale.ENGLISH, "Unable to format log: %s", formatString), e);
             }
         }
     }
@@ -256,8 +268,8 @@ public class Log {
      * @param msg The message you would like logged.
      */
     public static void i(String tag, String msg) {
-        if (logger != null && isLoggingEnabled(tag, INFO)) {
-            logger.i(tag, msg);
+        if (getLogger() != null && isLoggingEnabled(tag, INFO)) {
+            getLogger().i(tag, msg);
         }
     }
 
@@ -269,8 +281,8 @@ public class Log {
      * @param tr An exception to log
      */
     public static void i(String tag, String msg, Throwable tr) {
-        if (logger != null && isLoggingEnabled(tag, INFO)) {
-            logger.i(tag, msg, tr);
+        if (getLogger() != null && isLoggingEnabled(tag, INFO)) {
+            getLogger().i(tag, msg, tr);
         }
     }
 
@@ -282,11 +294,11 @@ public class Log {
      * @param args Variable number of Object args to be used as params to formatString.
      */
     public static void i(String tag, String formatString, Object... args) {
-        if (logger != null && isLoggingEnabled(tag, INFO)) {
+        if (getLogger() != null && isLoggingEnabled(tag, INFO)) {
             try {
-                logger.i(tag, String.format(Locale.ENGLISH, formatString, args));
+                getLogger().i(tag, String.format(Locale.ENGLISH, formatString, args));
             } catch (Exception e) {
-                logger.i(tag, String.format(Locale.ENGLISH, "Unable to format log: %s", formatString), e);
+                getLogger().i(tag, String.format(Locale.ENGLISH, "Unable to format log: %s", formatString), e);
             }
         }
     }
@@ -300,11 +312,11 @@ public class Log {
      * @param args Variable number of Object args to be used as params to formatString.
      */
     public static void i(String tag, String formatString, Throwable tr, Object... args) {
-        if (logger != null && isLoggingEnabled(tag, INFO)) {
+        if (getLogger() != null && isLoggingEnabled(tag, INFO)) {
             try {
-                logger.i(tag, String.format(Locale.ENGLISH, formatString, args, tr));
+                getLogger().i(tag, String.format(Locale.ENGLISH, formatString, args, tr));
             } catch (Exception e) {
-                logger.i(tag, String.format(Locale.ENGLISH, "Unable to format log: %s", formatString), e);
+                getLogger().i(tag, String.format(Locale.ENGLISH, "Unable to format log: %s", formatString), e);
             }
         }
     }
@@ -316,8 +328,8 @@ public class Log {
      * @param msg The message you would like logged.
      */
     public static void w(String tag, String msg) {
-        if (logger != null && isLoggingEnabled(tag, WARN)) {
-            logger.w(tag, msg);
+        if (getLogger() != null && isLoggingEnabled(tag, WARN)) {
+            getLogger().w(tag, msg);
         }
     }
 
@@ -328,8 +340,8 @@ public class Log {
      * @param tr An exception to log
      */
     public static void w(String tag, Throwable tr) {
-        if (logger != null && isLoggingEnabled(tag, WARN)) {
-            logger.w(tag, tr);
+        if (getLogger() != null && isLoggingEnabled(tag, WARN)) {
+            getLogger().w(tag, tr);
         }
     }
 
@@ -341,8 +353,8 @@ public class Log {
      * @param tr An exception to log
      */
     public static void w(String tag, String msg, Throwable tr) {
-        if (logger != null && isLoggingEnabled(tag, WARN)) {
-            logger.w(tag, msg, tr);
+        if (getLogger() != null && isLoggingEnabled(tag, WARN)) {
+            getLogger().w(tag, msg, tr);
         }
     }
 
@@ -355,11 +367,11 @@ public class Log {
      * @param args Variable number of Object args to be used as params to formatString.
      */
     public static void w(String tag, String formatString, Object... args) {
-        if (logger != null && isLoggingEnabled(tag, WARN)) {
+        if (getLogger() != null && isLoggingEnabled(tag, WARN)) {
             try {
-                logger.w(tag, String.format(Locale.ENGLISH, formatString, args));
+                getLogger().w(tag, String.format(Locale.ENGLISH, formatString, args));
             } catch (Exception e) {
-                logger.w(tag, String.format(Locale.ENGLISH, "Unable to format log: %s", formatString), e);
+                getLogger().w(tag, String.format(Locale.ENGLISH, "Unable to format log: %s", formatString), e);
             }
         }
     }
@@ -374,11 +386,11 @@ public class Log {
      * @param args Variable number of Object args to be used as params to formatString.
      */
     public static void w(String tag, String formatString, Throwable tr, Object... args) {
-        if (logger != null && isLoggingEnabled(tag, WARN)) {
+        if (getLogger() != null && isLoggingEnabled(tag, WARN)) {
             try {
-                logger.w(tag, String.format(Locale.ENGLISH, formatString, args), tr);
+                getLogger().w(tag, String.format(Locale.ENGLISH, formatString, args), tr);
             } catch (Exception e) {
-                logger.w(tag, String.format(Locale.ENGLISH, "Unable to format log: %s", formatString), e);
+                getLogger().w(tag, String.format(Locale.ENGLISH, "Unable to format log: %s", formatString), e);
             }
         }
     }
@@ -391,8 +403,8 @@ public class Log {
      * @param msg The message you would like logged.
      */
     public static void e(String tag, String msg) {
-        if (logger != null && isLoggingEnabled(tag, ERROR)) {
-            logger.e(tag, msg);
+        if (getLogger() != null && isLoggingEnabled(tag, ERROR)) {
+            getLogger().e(tag, msg);
         }
     }
 
@@ -404,8 +416,8 @@ public class Log {
      * @param tr An exception to log
      */
     public static void e(String tag, String msg, Throwable tr) {
-        if (logger != null && isLoggingEnabled(tag, ERROR)) {
-            logger.e(tag, msg, tr);
+        if (getLogger() != null && isLoggingEnabled(tag, ERROR)) {
+            getLogger().e(tag, msg, tr);
         }
     }
 
@@ -419,11 +431,11 @@ public class Log {
      * @param args Variable number of Object args to be used as params to formatString.
      */
     public static void e(String tag, String formatString, Throwable tr, Object... args) {
-        if (logger != null && isLoggingEnabled(tag, ERROR)) {
+        if (getLogger() != null && isLoggingEnabled(tag, ERROR)) {
             try {
-                logger.e(tag, String.format(Locale.ENGLISH, formatString, args), tr);
+                getLogger().e(tag, String.format(Locale.ENGLISH, formatString, args), tr);
             } catch (Exception e) {
-                logger.e(tag, String.format(Locale.ENGLISH, "Unable to format log: %s", formatString), e);
+                getLogger().e(tag, String.format(Locale.ENGLISH, "Unable to format log: %s", formatString), e);
             }
         }
     }
@@ -436,14 +448,101 @@ public class Log {
      * @param args Variable number of Object args to be used as params to formatString.
      */
     public static void e(String tag, String formatString, Object... args) {
-        if (logger != null && isLoggingEnabled(tag, ERROR)) {
+        if (getLogger() != null && isLoggingEnabled(tag, ERROR)) {
             try {
-                logger.e(tag, String.format(Locale.ENGLISH, formatString, args));
+                getLogger().e(tag, String.format(Locale.ENGLISH, formatString, args));
             } catch (Exception e) {
-                logger.e(tag, String.format(Locale.ENGLISH, "Unable to format log: %s", formatString), e);
+                getLogger().e(tag, String.format(Locale.ENGLISH, "Unable to format log: %s", formatString), e);
             }
         }
     }
 
 
+    public static Logger getLogger() {
+        if (logger == null) {
+            createLoggerBlockingThread();
+        }
+        return logger;
+    }
+
+    /**
+     * Reads loager with Clasloader and init it.
+     *
+     *  Blocking current thread for reading & loading Logger class.
+     */
+    private static void createLoggerBlockingThread() {
+        if (initLogLatch == null) {
+            initLogLatch = new CountDownLatch(1);
+
+            new Thread() {
+                @Override
+                public void run() {
+                    logger = LoggerFactory.createLogger();
+
+                    initLogLatch.countDown();
+                }
+            }.start();
+        }
+
+        try {
+            final boolean completed = initLogLatch.await(1, TimeUnit.SECONDS);
+            if (!completed) throw new TimeoutException("Unable to init log in 1 sec");
+        } catch (InterruptedException | TimeoutException e) {
+            e.printStackTrace();
+
+            logger = new NullStateLogger();
+        }
+    }
+
+    public static void setLogger(Logger logger) {
+        Log.logger = logger;
+    }
+
+    //todo: change to System.out
+    public static class NullStateLogger implements Logger {
+
+        @Override
+        public void v(String tag, String msg) {
+        }
+
+        @Override
+        public void v(String tag, String msg, Throwable tr) {
+        }
+
+        @Override
+        public void d(String tag, String msg) {
+        }
+
+        @Override
+        public void d(String tag, String msg, Throwable tr) {
+        }
+
+        @Override
+        public void i(String tag, String msg) {
+        }
+
+        @Override
+        public void i(String tag, String msg, Throwable tr) {
+        }
+
+        @Override
+        public void w(String tag, String msg) {
+        }
+
+        @Override
+        public void w(String tag, Throwable tr) {
+        }
+
+        @Override
+        public void w(String tag, String msg, Throwable tr) {
+        }
+
+        @Override
+        public void e(String tag, String msg) {
+        }
+
+        @Override
+        public void e(String tag, String msg, Throwable tr) {
+        }
+    }
 }
