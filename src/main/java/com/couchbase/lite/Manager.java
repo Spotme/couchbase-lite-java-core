@@ -298,7 +298,8 @@ public final class Manager {
                     db = getDatabaseWithoutOpeningWithoutCaching(name, mustExist, "");
                     if (db != null) {
                         boolean opened = db.open();
-                        Log.w(Database.TAG, "Successfully open db " + name + " as non-encrypted. Opened status: " + opened);
+                        //AndroidSQLiteStorageEngine.TAG is not accessible in java-core submodule
+                        Log.w("AndroidSQLiteStorageEngine", "Successfully open db " + name + " as non-encrypted. Opened status: " + opened);
                         if (!opened) {
                             return null;
                         }
