@@ -1907,6 +1907,8 @@ public class Router implements Database.ChangeListener {
             setErrorResponse(e.getMessage());
 
             return new Status(e.getHttpErrorStatusCode());
+        } finally {
+            connection.getResHeader().add("Content-Type", "application/json");
         }
     }
 
