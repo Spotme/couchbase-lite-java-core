@@ -35,7 +35,7 @@ import com.couchbase.lite.support.Version;
 import com.couchbase.lite.util.Log;
 import com.couchbase.lite.util.StreamUtils;
 
-import org.mozilla.javascript.NativeArray;
+import cz.msebera.android.httpclient.client.HttpResponseException;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -62,7 +62,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import cz.msebera.android.httpclient.client.HttpResponseException;
+import org.mozilla.javascript.NativeArray;
 
 public class Router implements Database.ChangeListener {
 
@@ -168,6 +168,23 @@ public class Router implements Database.ChangeListener {
         return result;
     }
 
+    public Object getQuotedJSONQuery(String param) {
+        String value = getQuery(param);
+        if(value == null) {
+            return null;
+        }
+        if (!value.startsWith("\"") && !value.endsWith("\"")) {
+            value = "\"" + value + "\"";
+        }
+        Object result = null;
+        try {
+            result = Manager.getObjectMapper().readValue(value, Object.class);
+        } catch (Exception e) {
+            Log.w("Unable to parse JSON Query", e);
+        }
+        return result;
+    }
+
     public boolean cacheWithEtag(String etag) {
         String eTag = String.format("\"%s\"", etag);
         connection.getResHeader().add("Etag", eTag);
@@ -246,11 +263,11 @@ public class Router implements Database.ChangeListener {
         else {
             options.setStartKey(getJSONQuery("startkey"));
             options.setEndKey(getJSONQuery("endkey"));
-            if (getJSONQuery("startkey_docid") != null) {
-                options.setStartKeyDocId(getJSONQuery("startkey_docid").toString());
+            if (getQuotedJSONQuery("startkey_docid") != null) {
+                options.setStartKeyDocId(getQuotedJSONQuery("startkey_docid").toString());
             }
-            if (getJSONQuery("endkey_docid") != null) {
-                options.setEndKeyDocId(getJSONQuery("endkey_docid").toString());
+            if (getQuotedJSONQuery("endkey_docid") != null) {
+                options.setEndKeyDocId(getQuotedJSONQuery("endkey_docid").toString());
             }
             if (getQuery("full_text") != null) {
                 options.setFullTextQuery(getQuery("full_text").toString());
