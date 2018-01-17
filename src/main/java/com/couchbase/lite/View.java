@@ -891,6 +891,8 @@ public final class View {
         if (options.isDescending()) {
             sql = sql + " DESC";
         }
+        String sortDocId = options.isDescending() ? ", docid DESC" : ", docid";
+        sql = sql + sortDocId;
 
         sql = sql + " LIMIT ? OFFSET ?";
         argsList.add(Integer.toString(options.getLimit()));
