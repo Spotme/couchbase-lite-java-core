@@ -107,6 +107,7 @@ public class Router implements Database.ChangeListener {
                     if(location > 0) {
                         String key = component.substring(0, location);
                         String value = component.substring(location + 1);
+                        if (value.equals("null")) value = null;
                         queries.put(key, value);
                     }
                 }
