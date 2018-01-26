@@ -4335,6 +4335,7 @@ public final class Database {
             // in the local history:
             long sequence = 0;
             long localParentSequence = 0;
+            long localParentSequenceNonDeleted = 0;
             for(int i = revHistory.size() - 1; i >= 0; --i) {
                 revId = revHistory.get(i);
                 RevisionInternal localRev = (localRevs != null) ? localRevs.get(revId) : null;
@@ -4343,6 +4344,7 @@ public final class Database {
                     sequence = localRev.getSequence();
                     assert(sequence > 0);
                     localParentSequence = sequence;
+                    if (!localRev.isDeleted()) localParentSequenceNonDeleted = sequence;
                 }
                 else {
                     // This revision isn't known, so add it:
@@ -4380,6 +4382,7 @@ public final class Database {
                         // the latest local revision (this is to copy attachments from):
                         Map<String, AttachmentInternal> attachments = getAttachmentsFromRevision(rev);
                         if (attachments != null) {
+                            localParentSequence = localParentSequenceNonDeleted;
                             processAttachmentsForRevision(attachments, rev, localParentSequence);
                             stubOutAttachmentsInRevision(attachments, rev);
                         }
