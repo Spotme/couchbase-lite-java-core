@@ -81,6 +81,11 @@ public final class Puller extends Replication implements ChangeTrackerClient {
     }
 
     @Override
+    public boolean isUsingBulkGet() {
+        return canBulkGet;
+    }
+
+    @Override
     @InterfaceAudience.Public
     public boolean isPull() {
         return true;

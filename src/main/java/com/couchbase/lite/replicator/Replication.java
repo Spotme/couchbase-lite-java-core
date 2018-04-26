@@ -272,6 +272,11 @@ public abstract class Replication {
         }
     }
 
+    /**
+     * Replication is using bulk get
+     */
+    @InterfaceAudience.Public
+    public abstract boolean isUsingBulkGet();
 
     /**
      * Get the local database which is the source or target of this replication

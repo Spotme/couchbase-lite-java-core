@@ -70,6 +70,11 @@ public final class Pusher extends Replication implements Database.ChangeListener
     }
 
     @Override
+    public boolean isUsingBulkGet() {
+        return false;
+    }
+
+    @Override
     @InterfaceAudience.Public
     public boolean isPull() {
         return false;
