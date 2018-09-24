@@ -2065,7 +2065,7 @@ public final class Database {
         String sql = "SELECT revid FROM revs " +
                 "WHERE doc_id=? and revid in (" + quotedRevIds + ") and revid <= ? " +
                 "ORDER BY revid DESC LIMIT 1";
-        String[] args = {Long.toString(docNumericID)};
+        String[] args = {Long.toString(docNumericID), rev.getRevId()};
 
         Cursor cursor = null;
         try {
