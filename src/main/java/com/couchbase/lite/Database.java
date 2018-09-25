@@ -2052,24 +2052,30 @@ public final class Database {
      * @exclude
      */
     @InterfaceAudience.Private
-    public String findCommonAncestorOf(RevisionInternal rev, List<String> revIDs) {
+    public String findCommonAncestorOf(RevisionInternal rev, List<String> incomingRevIDs) {
         String result = null;
 
+        final List<String> revIDs = withoutNulls(incomingRevIDs);
         if (revIDs.size() == 0)
             return null;
         String docId = rev.getDocId();
         long docNumericID = getDocNumericID(docId);
         if (docNumericID <= 0)
             return null;
-        String quotedRevIds = joinQuoted(revIDs);
-        String sql = "SELECT revid FROM revs " +
-                "WHERE doc_id=? and revid in (" + quotedRevIds + ") and revid <= ? " +
-                "ORDER BY revid DESC LIMIT 1";
-        String[] args = {Long.toString(docNumericID), rev.getRevId()};
+
+        String quotedRevIds = createTemplateForInStatement(revIDs);
+        String sql = ("SELECT revid FROM revs " +
+                "WHERE doc_id=? and revid in (") + quotedRevIds + (") and revid <= ? " +
+                "ORDER BY revid DESC LIMIT 1");
+
+        List<String> args = new ArrayList<>(revIDs.size() + 2);
+        args.add(Long.toString(docNumericID));
+        args.addAll(revIDs);
+        args.add(rev.getRevId());
 
         Cursor cursor = null;
         try {
-            cursor = database.rawQuery(sql, args);
+            cursor = database.rawQuery(sql, toArray(args));
             cursor.moveToNext();
             if (!cursor.isAfterLast()) {
                 result = cursor.getString(0);
@@ -2630,7 +2636,7 @@ public final class Database {
 
 
         try {
-            cursor = database.rawQuery(sql.toString(), args.toArray(new String[args.size()]));
+            cursor = database.rawQuery(sql.toString(), toArray(args));
 
             boolean keepGoing = cursor.moveToNext();
 
@@ -4640,6 +4646,28 @@ public final class Database {
     }
 
     /**
+     * @return template with ? and , for given number of arguments.
+     *
+     *  E.g. foo, bar, bazz -> ?, ?, ?
+     *
+     * @exclude
+     */
+    @InterfaceAudience.Private
+    public static String createTemplateForInStatement(List<String> strings) {
+        if(strings.size() == 0) return "";
+
+        StringBuilder builder = new StringBuilder();
+
+        for( int i = 0 ; i < strings.size(); i++ ) {
+            builder.append("?,");
+        }
+
+        final String result = builder.deleteCharAt(builder.length() - 1).toString();
+
+        return result;
+    }
+
+    /**
      * @exclude
      */
     @InterfaceAudience.Private
@@ -4649,19 +4677,26 @@ public final class Database {
             return numRevisionsRemoved;
         }
 
-        String quotedDocIds = joinQuoted(touchRevs.getAllDocIds());
-        String quotedRevIds = joinQuoted(touchRevs.getAllRevIds());
+        final List<String> docIds = withoutNulls(touchRevs.getAllDocIds());
+        String quotedDocIdsTemplate = createTemplateForInStatement(docIds);
+        
+        final List<String> revIds = withoutNulls(touchRevs.getAllRevIds());
+        String quotedRevIdsTemplate = createTemplateForInStatement(revIds);
+
+        List<String> args = new ArrayList<>();
+        args.addAll(docIds);
+        args.addAll(revIds);
 
         String sql = "SELECT docid, revid FROM revs, docs " +
                       "WHERE docid IN (" +
-                      quotedDocIds +
+                      quotedDocIdsTemplate +
                       ") AND revid in (" +
-                      quotedRevIds + ")" +
+                      quotedRevIdsTemplate + ")" +
                       " AND revs.doc_id == docs.doc_id";
 
         Cursor cursor = null;
         try {
-            cursor = database.rawQuery(sql, null);
+            cursor = database.rawQuery(sql, toArray(args));
             cursor.moveToNext();
             while(!cursor.isAfterLast()) {
                 RevisionInternal rev = touchRevs.revWithDocIdAndRevId(cursor.getString(0), cursor.getString(1));
@@ -4679,6 +4714,20 @@ public final class Database {
             }
         }
         return numRevisionsRemoved;
+    }
+
+    private List<String> withoutNulls(List<String> allDocIds) {
+        if (!allDocIds.contains(null)) return allDocIds;
+
+        List<String> nonNullList = new ArrayList<>(allDocIds);
+
+        nonNullList.removeAll(Collections.singleton(null));
+
+        return nonNullList;
+    }
+
+    private String[] toArray(List<String> args) {
+        return args.toArray(new String[args.size()]);
     }
 
     /*************************************************************************************************/
