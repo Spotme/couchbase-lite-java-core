@@ -5231,4 +5231,84 @@ public final class Database {
         return persistentCookieStore;
     }
 
+    /**
+     * Encrypts non-encrypted DB.
+     *
+     * @throws IllegalStateException if db can't be encrypted.
+     */
+    public void encryptPlaintextDb() throws IllegalStateException {
+        final String encryptionKey = manager.getDatabasePassword();
+
+        //xxx: add later check for sqliteHasEncryptionEnabled if possible
+        if (encryptionKey == null || encryptionKey.isEmpty()) {
+            throw new IllegalStateException("No encryptionKey found: " + encryptionKey);
+        }
+
+        final File dbFile = new File(path);
+        final String parentDir = dbFile.getParent();
+        final String tempDbName = "dbtmp_" + dbFile.getName();
+        final File tempDbFile = new File(parentDir, tempDbName);
+
+        //in case something already exists - clean it
+        final boolean existingTempFileDeleted = !tempDbFile.exists() || tempDbFile.delete();
+        if (!existingTempFileDeleted) {
+            throw new IllegalStateException("Temp file already exist. Unable to delete it: " + tempDbFile);
+        }
+
+        try {
+            final String tempPath = tempDbFile.getAbsolutePath();
+            String createEmptyLinkedEncryptedDbSqlCommand = "ATTACH DATABASE ? AS rekeyed_db KEY '" + encryptionKey + "'";
+            database.execSQL(createEmptyLinkedEncryptedDbSqlCommand, new String[]{tempPath});
+
+            String putVersSqlCommand = "PRAGMA rekeyed_db.user_version = " + schemaVersion();
+            database.execSQL(putVersSqlCommand);
+
+            Cursor exportDbEmulatedAsCursor = null;
+            try {
+                //export existing db into linked encrypted db is emulated by "SELECT" in sqlcipher.
+                String exportDbSqlCommand = "SELECT sqlcipher_export('rekeyed_db')";
+                exportDbEmulatedAsCursor = database.rawQuery(exportDbSqlCommand, new String[]{});
+                final boolean exportedToEncryptedDb = exportDbEmulatedAsCursor.moveToNext();
+                if (!exportedToEncryptedDb) {
+                    throw new IllegalStateException("Unable to export as encrypted: " + exportDbEmulatedAsCursor.getInt(0));
+                }
+            } finally {
+                if (exportDbEmulatedAsCursor != null) exportDbEmulatedAsCursor.close();
+            }
+
+            database.execSQL("DETACH DATABASE rekeyed_db");
+
+            //todo fix close() method so that open() could be called later: e.g. no null for allReplicators, etc.
+            close();
+
+            final boolean originalDbFileDeleted = dbFile.delete();
+            if (originalDbFileDeleted) {
+                throw new IllegalStateException("Unable to swap with encrypted db. Unable to delete original db: " + dbFile);
+            }
+
+            final boolean encryptedDbMovedToOriginal = tempDbFile.renameTo(dbFile);
+            if (!encryptedDbMovedToOriginal) {
+                throw new IllegalStateException("Unable to move encrypted db to original db. " + tempDbFile + " -> " + dbFile);
+            }
+
+            //new password must be set because initially this CBL db was opened as non-encrypted.
+            password = encryptionKey;
+            open();
+
+            //note: do not call replaceUUIDs() -> it's should be done separately in the app.
+
+            attachments.encryptBlobStore();
+        } catch (SQLException e) { //CouchbaseLiteException |
+            //in case temp db file was already created - clean it
+            tempDbFile.delete();
+
+            throw new IllegalStateException("Unable to encrypt db " + getName(), e);
+        }
+    }
+
+    private int schemaVersion() {
+        return database.getVersion();
+
+    }
+
 }

@@ -17,6 +17,7 @@
 
 package com.couchbase.lite;
 
+import com.couchbase.lite.support.FileDirUtils;
 import com.couchbase.lite.util.FileEncryptionUtils;
 import com.couchbase.lite.util.Log;
 import com.couchbase.lite.util.StreamUtils;
@@ -24,7 +25,9 @@ import com.couchbase.lite.util.StreamUtils;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.MessageDigest;
@@ -315,5 +318,56 @@ public class BlobStore {
         }
 
         return tempDirectory;
+    }
+
+    /**
+     * Encrypt attachments of non-encrypted DB
+     *
+     * @throws IllegalStateException if db can't be encrypted.
+     */
+    public void encryptBlobStore() {
+        final String encryptionKey = db.getPassword();
+        if (encryptionKey == null || encryptionKey.isEmpty()) {
+            throw new IllegalStateException("No encryptionKey found: " + encryptionKey);
+        }
+
+        final File attachmentDirectory = new File(storeDir);
+        final File[] blobs = attachmentDirectory.listFiles(new FilenameFilter() {
+            @Override
+            public boolean accept(File dir, String name) {
+                return name.toLowerCase().endsWith(FILE_EXTENSION);
+            }
+        });
+
+        //skip encryption if nothing to encrypt
+        if (blobs == null || blobs.length == 0) return;
+
+        final File tempDir = new File(attachmentDirectory.getParent(), "dbtmp_" + attachmentDirectory.getName());
+        final boolean tempDirCreated = tempDir.mkdir();
+        if (!tempDirCreated) {
+            throw new IllegalStateException("Unable to create temp dir for encrypting attachments: " + tempDir);
+        }
+
+        for (File blobFile : blobs) {
+            try {
+                final File encryptedBlobFile = new File(tempDir, blobFile.getName());
+                final boolean blobEncrypted = FileEncryptionUtils.streamToFile(new FileInputStream(blobFile), encryptedBlobFile, encryptionKey);
+                if (!blobEncrypted) {
+                    throw new IllegalStateException("Unable to encrypt attachment " + blobFile);
+                }
+            } catch (FileNotFoundException e) {
+                throw new IllegalStateException("Unable to encrypt attachment " + blobFile, e);
+            }
+        }
+
+        final boolean originalDbAttachmentsDeleted = FileDirUtils.deleteRecursive(attachmentDirectory);
+        if (!originalDbAttachmentsDeleted) {
+            throw new IllegalStateException("Unable to swap with encrypted attachments. Unable to delete original attachments: " + attachmentDirectory);
+        }
+
+        final boolean encryptedAttachmentsMovedToOriginal = tempDir.renameTo(attachmentDirectory);
+        if (!encryptedAttachmentsMovedToOriginal) {
+            throw new IllegalStateException("Unable to move encrypted attachments to original attachments. " + tempDir + " -> " + attachmentDirectory);
+        }
     }
 }

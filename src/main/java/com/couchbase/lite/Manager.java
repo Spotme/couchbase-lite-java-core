@@ -779,5 +779,12 @@ public final class Manager {
     public void setDbCorruptionHandler(DbCorruptionHandler dbCorruptionHandler) {
         this.dbCorruptionHandler = dbCorruptionHandler;
     }
+
+    /**
+     * Should be used only in internal logic of re-encryption non-encrypted dbs.
+     */
+    /* package */ String getDatabasePassword() {
+        return options.getDatabasePassword();
+    }
 }
 
