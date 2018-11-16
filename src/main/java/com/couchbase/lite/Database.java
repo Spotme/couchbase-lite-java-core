@@ -1397,10 +1397,10 @@ public final class Database {
             for(Replication replicator : activeReplicators) {
                 replicator.databaseClosing();
             }
-            activeReplicators = null;
+            activeReplicators.clear();
         }
 
-        allReplicators = null;
+        allReplicators.clear();
 
         if(database != null && database.isOpen()) {
             database.close();
@@ -5282,7 +5282,7 @@ public final class Database {
             close();
 
             final boolean originalDbFileDeleted = dbFile.delete();
-            if (originalDbFileDeleted) {
+            if (!originalDbFileDeleted) {
                 throw new IllegalStateException("Unable to swap with encrypted db. Unable to delete original db: " + dbFile);
             }
 
