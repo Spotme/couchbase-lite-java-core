@@ -22,9 +22,10 @@ dependencies {
     //https://hc.apache.org/httpcomponents-client-4.5.x/android-port.html
     compile group: 'cz.msebera.android' , name: 'httpclient', version: '4.4.1.1'
 
-    compile 'com.fasterxml.jackson.core:jackson-core:2.6.1'
-    compile 'com.fasterxml.jackson.core:jackson-annotations:2.6.1'
-    compile 'com.fasterxml.jackson.core:jackson-databind:2.6.1'
+    def jacksonVersion = "2.9.7"
+    compile "com.fasterxml.jackson.core:jackson-core:$jacksonVersion"
+    compile "com.fasterxml.jackson.core:jackson-annotations:$jacksonVersion"
+    compile "com.fasterxml.jackson.core:jackson-databind:$jacksonVersion"
 
     //todo remove usage of this fork when fix below will be merged.
     //1.7.8 with fixed https://github.com/mozilla/rhino/issues/238.
