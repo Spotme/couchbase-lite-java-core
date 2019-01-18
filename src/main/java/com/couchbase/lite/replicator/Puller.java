@@ -46,7 +46,8 @@ public final class Puller extends Replication implements ChangeTrackerClient {
     public static final int MAX_NUMBER_OF_ATTS_SINCE = 50;
 
     // Does the server support _bulk_get requests?
-    protected Boolean canBulkGet;
+    // TODO: revert it back when bulk get is fixed on Android (EP-678)
+    final protected Boolean canBulkGet = false;
 
     // Ignore the removed items in changes?
     protected boolean ignoreRemoved;
@@ -76,7 +77,8 @@ public final class Puller extends Replication implements ChangeTrackerClient {
     @InterfaceAudience.Private
     /* package */ public Puller(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, boolean bulkGet, boolean ignoreRm, int batchS, HttpClientFactory clientFactory, ScheduledExecutorService workExecutor) {
         super(db, remote, replID, remoteDbUuid, continuous, batchS, clientFactory, workExecutor);
-        canBulkGet = bulkGet;
+        // TODO: revert it back when bulk get is fixed on Android (EP-678)
+        //        canBulkGet = bulkGet;
         ignoreRemoved = ignoreRm;
     }
 
