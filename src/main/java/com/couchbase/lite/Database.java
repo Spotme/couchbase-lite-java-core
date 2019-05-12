@@ -73,6 +73,7 @@ import java.util.zip.GZIPInputStream;
 
 /**
  * A CouchbaseLite database.
+ * TEST
  */
 public final class Database {
 
