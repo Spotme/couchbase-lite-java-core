@@ -42,6 +42,7 @@ import com.couchbase.lite.util.TextUtils;
 import com.couchbase.lite.util.Utils;
 
 import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -73,7 +74,6 @@ import java.util.zip.GZIPInputStream;
 
 /**
  * A CouchbaseLite database.
- * TEST
  */
 public final class Database {
 
@@ -3279,33 +3279,41 @@ public final class Database {
 
     // Replaces the "follows" key with the real attachment data in all attachments to 'doc'.
     public boolean inlineFollowingAttachmentsIn(RevisionInternal rev) {
-
         return rev.mutateAttachments(new CollectionUtils.Functor<Map<String, Object>, Map<String, Object>>() {
             public Map<String, Object> invoke(Map<String, Object> attachment) {
-                if (!attachment.containsKey("follows")) return attachment;
-
+                if (!attachment.containsKey("follows")) {
+                    return attachment;
+                }
+                InputStream inputStream = null;
+                ByteArrayOutputStream byteArrayOutputStream = null;
                 try {
                     final URL fileURL = fileForAttachmentDict(attachment);
-
-                    final InputStream is = FileEncryptionUtils.readFile(new File(fileURL.toURI()), Database.this.getPassword());
-                    final ByteArrayOutputStream os = new ByteArrayOutputStream();
-
-                    StreamUtils.copyStream(is,os);
-
-                    byte[] fileData = os.toByteArray();
-
+                    inputStream = FileEncryptionUtils.readFile(new File(fileURL.toURI()), Database.this.getPassword());
+                    byteArrayOutputStream = new ByteArrayOutputStream();
+                    StreamUtils.copyStream(inputStream, byteArrayOutputStream);
+                    byte[] fileData = byteArrayOutputStream.toByteArray();
                     final Map<String, Object> editedAttachment = new HashMap<String, Object>(attachment);
-
                     editedAttachment.remove("follows");
-                    editedAttachment.put("data",Base64.encodeBytes(fileData));
-
+                    editedAttachment.put("data", Base64.encodeBytes(fileData));
                     return editedAttachment;
                 } catch (Exception e) {
+                    closeQuietly(inputStream);
+                    closeQuietly(byteArrayOutputStream);
                     Log.e(Log.TAG_SYNC,"could not retrieve attachment data: %S",e);
                     return null;
                 }
             }
         });
+    }
+
+    private void closeQuietly(Closeable closable) {
+        if (closable != null) {
+            try {
+                closable.close();
+            } catch (IOException var1) {
+                ;
+            }
+        }
     }
 
 
