@@ -3297,10 +3297,12 @@ public final class Database {
                     editedAttachment.put("data", Base64.encodeBytes(fileData));
                     return editedAttachment;
                 } catch (Exception e) {
-                    closeQuietly(inputStream);
-                    closeQuietly(byteArrayOutputStream);
                     Log.e(Log.TAG_SYNC,"could not retrieve attachment data: %S",e);
                     return null;
+                }
+                finally {
+                    closeQuietly(inputStream);
+                    closeQuietly(byteArrayOutputStream);
                 }
             }
         });
