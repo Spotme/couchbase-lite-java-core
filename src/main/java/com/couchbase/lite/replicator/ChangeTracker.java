@@ -7,19 +7,6 @@ import com.couchbase.lite.internal.InterfaceAudience;
 import com.couchbase.lite.util.Log;
 import com.couchbase.lite.util.URIUtils;
 import com.couchbase.lite.util.Utils;
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLEncoder;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 import cz.msebera.android.httpclient.HttpEntity;
 import cz.msebera.android.httpclient.HttpException;
@@ -40,6 +27,16 @@ import cz.msebera.android.httpclient.entity.StringEntity;
 import cz.msebera.android.httpclient.impl.auth.BasicScheme;
 import cz.msebera.android.httpclient.impl.client.DefaultHttpClient;
 import cz.msebera.android.httpclient.protocol.HttpContext;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 
 /**
@@ -148,6 +145,8 @@ public class ChangeTracker implements Runnable {
         if(lastSequenceID != null) {
             path += "&since=" + URLEncoder.encode(lastSequenceID.toString());
         }
+
+        path += "&seq_interval=5000";
 
         if (usePOST) {
             path += "&filter=_doc_ids";
@@ -395,10 +394,10 @@ public class ChangeTracker implements Runnable {
 
     public boolean receivedChange(final Map<String,Object> change) {
         Object seq = change.get("seq");
-        if(seq == null) {
-            client.addTotalDocs(-1);
-            return false;
-        }
+//        if(seq == null) {
+//            client.addTotalDocs(-1);
+//            return false;
+//        }
         //pass the change to the client on the thread that created this change tracker
         if(client != null) {
             client.changeTrackerReceivedChange(change);
