@@ -19,6 +19,9 @@ import com.couchbase.lite.util.CollectionUtils;
 import com.couchbase.lite.util.Log;
 import com.couchbase.lite.util.URIUtils;
 
+import cz.msebera.android.httpclient.client.HttpClient;
+import cz.msebera.android.httpclient.client.HttpResponseException;
+
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -29,9 +32,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import cz.msebera.android.httpclient.client.HttpClient;
-import cz.msebera.android.httpclient.client.HttpResponseException;
 
 
 /**
@@ -223,7 +223,7 @@ public final class Puller extends Replication implements ChangeTrackerClient {
     @InterfaceAudience.Private
     public void changeTrackerReceivedChange(Map<String, Object> change) {
 
-        String lastSequence = change.get("seq").toString();
+        //String lastSequence = change.get("seq").toString();
         String docID = (String) change.get("id");
         if (docID == null) {
             addToChangesCount(-1);
@@ -251,7 +251,7 @@ public final class Puller extends Replication implements ChangeTrackerClient {
                 continue;
             }
             PulledRevision rev = new PulledRevision(docID, revID, deleted, db);
-            rev.setRemoteSequenceID(lastSequence);
+            //rev.setRemoteSequenceID(lastSequence);
 
             if(changes.size() > 1) rev.setConflicted(true);
 
