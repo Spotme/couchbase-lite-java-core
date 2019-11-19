@@ -221,9 +221,8 @@ public final class Puller extends Replication implements ChangeTrackerClient {
     // Got a _changes feed entry from the ChangeTracker.
     @Override
     @InterfaceAudience.Private
-    public void changeTrackerReceivedChange(Map<String, Object> change) {
+    public void changeTrackerReceivedChange(Map<String, Object> change, String lastSequence) {
 
-        //String lastSequence = change.get("seq").toString();
         String docID = (String) change.get("id");
         if (docID == null) {
             addToChangesCount(-1);
@@ -251,7 +250,7 @@ public final class Puller extends Replication implements ChangeTrackerClient {
                 continue;
             }
             PulledRevision rev = new PulledRevision(docID, revID, deleted, db);
-            //rev.setRemoteSequenceID(lastSequence);
+            rev.setRemoteSequenceID(lastSequence);
 
             if(changes.size() > 1) rev.setConflicted(true);
 

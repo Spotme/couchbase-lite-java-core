@@ -51,7 +51,7 @@ public class ChangeTracker implements Runnable {
     private URL databaseURL;
     private ChangeTrackerClient client;
     private ChangeTrackerMode mode;
-    private Object lastSequenceID;
+    private String lastSequenceID;
     private boolean includeConflicts;
 
     private Thread thread;
@@ -83,7 +83,7 @@ public class ChangeTracker implements Runnable {
         this.databaseURL = databaseURL;
         this.mode = mode;
         this.includeConflicts = includeConflicts;
-        this.lastSequenceID = lastSequenceID;
+        this.lastSequenceID = (String)lastSequenceID;
         this.client = client;
         this.requestHeaders = new HashMap<String, Object>();
         this.heartBeatSeconds = 300;
@@ -143,7 +143,7 @@ public class ChangeTracker implements Runnable {
         }
 
         if(lastSequenceID != null) {
-            path += "&since=" + URLEncoder.encode(lastSequenceID.toString());
+            path += "&since=" + URLEncoder.encode(lastSequenceID);
         }
 
         path += "&seq_interval=5000";
@@ -343,6 +343,7 @@ public class ChangeTracker implements Runnable {
                             // workaround to avoid total docs to replicate to grow
                             Map res = Manager.getMapReader().readValue(input);
                             List<Map<String, Object>> results = (List<Map<String, Object>>) res.get("results");
+                            lastSequenceID = (String)res.get("last_seq");
                             if(client != null) client.addTotalDocs(results.size());
                             for (Map<String, Object> change : results) {
                                 List changes = (List) change.get("changes");
@@ -393,16 +394,15 @@ public class ChangeTracker implements Runnable {
     }
 
     public boolean receivedChange(final Map<String,Object> change) {
-        Object seq = change.get("seq");
+//        Object seq = change.get("seq");
 //        if(seq == null) {
 //            client.addTotalDocs(-1);
 //            return false;
 //        }
         //pass the change to the client on the thread that created this change tracker
         if(client != null) {
-            client.changeTrackerReceivedChange(change);
+            client.changeTrackerReceivedChange(change, lastSequenceID);
         }
-        lastSequenceID = seq;
         return true;
     }
 
