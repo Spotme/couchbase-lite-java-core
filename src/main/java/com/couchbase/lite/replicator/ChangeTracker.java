@@ -8,6 +8,16 @@ import com.couchbase.lite.util.Log;
 import com.couchbase.lite.util.URIUtils;
 import com.couchbase.lite.util.Utils;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import cz.msebera.android.httpclient.HttpEntity;
 import cz.msebera.android.httpclient.HttpException;
 import cz.msebera.android.httpclient.HttpRequest;
@@ -28,16 +38,6 @@ import cz.msebera.android.httpclient.impl.auth.BasicScheme;
 import cz.msebera.android.httpclient.impl.client.DefaultHttpClient;
 import cz.msebera.android.httpclient.protocol.HttpContext;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLEncoder;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 
 /**
  * Reads the continuous-mode _changes feed of a database, and sends the
@@ -52,6 +52,7 @@ public class ChangeTracker implements Runnable {
     private ChangeTrackerClient client;
     private ChangeTrackerMode mode;
     private String lastSequenceID;
+    private int seqInterval;
     private boolean includeConflicts;
 
     private Thread thread;
@@ -78,12 +79,17 @@ public class ChangeTracker implements Runnable {
         Continuous  // does not work, do not use it.
     }
 
-    public ChangeTracker(URL databaseURL, ChangeTrackerMode mode, boolean includeConflicts,
-                         Object lastSequenceID, ChangeTrackerClient client) {
+    public ChangeTracker(URL databaseURL,
+                         ChangeTrackerMode mode,
+                         boolean includeConflicts,
+                         Object lastSequenceID,
+                         int seqInterval,
+                         ChangeTrackerClient client) {
         this.databaseURL = databaseURL;
         this.mode = mode;
         this.includeConflicts = includeConflicts;
         this.lastSequenceID = (String)lastSequenceID;
+        this.seqInterval = seqInterval;
         this.client = client;
         this.requestHeaders = new HashMap<String, Object>();
         this.heartBeatSeconds = 300;
@@ -146,7 +152,10 @@ public class ChangeTracker implements Runnable {
             path += "&since=" + URLEncoder.encode(lastSequenceID);
         }
 
-        path += "&seq_interval=5000";
+        if (seqInterval > 0) {
+            Log.i(Log.TAG_CHANGE_TRACKER, this + ": Apply seq_interval=%d", seqInterval);
+            path += "&seq_interval=" + seqInterval;
+        }
 
         if (usePOST) {
             path += "&filter=_doc_ids";
@@ -506,9 +515,9 @@ public class ChangeTracker implements Runnable {
         }
         if (lastSequenceID != null) {
             try {
-                post.put("since", Long.parseLong(lastSequenceID.toString()));
+                post.put("since", Long.parseLong(lastSequenceID));
             } catch (NumberFormatException e) {
-                post.put("since", lastSequenceID.toString());
+                post.put("since", lastSequenceID);
             }
         }
 

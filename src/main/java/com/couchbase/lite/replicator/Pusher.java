@@ -16,10 +16,15 @@ import com.couchbase.lite.support.HttpClientFactory;
 import com.couchbase.lite.support.RemoteRequestCompletionBlock;
 import com.couchbase.lite.util.Log;
 
+import org.apache.http.entity.mime.MultipartEntity;
+import org.apache.http.entity.mime.content.InputStreamBody;
+import org.apache.http.entity.mime.content.StringBody;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -33,9 +38,6 @@ import java.util.TreeSet;
 import java.util.concurrent.ScheduledExecutorService;
 
 import cz.msebera.android.httpclient.client.HttpResponseException;
-import org.apache.http.entity.mime.MultipartEntity;
-import org.apache.http.entity.mime.content.InputStreamBody;
-import org.apache.http.entity.mime.content.StringBody;
 
 /**
  * @exclude
@@ -64,7 +66,7 @@ public final class Pusher extends Replication implements Database.ChangeListener
      */
     @InterfaceAudience.Private
     /* package */ public Pusher(Database db, URL remote, String replID, String remoteDbUuid,  boolean continuous, HttpClientFactory clientFactory, ScheduledExecutorService workExecutor) {
-        super(db, remote, replID, remoteDbUuid, continuous, null, clientFactory, workExecutor);
+        super(db, remote, replID, remoteDbUuid, continuous, null, 0, clientFactory, workExecutor);
         createTarget = false;
         observing = false;
     }
@@ -497,7 +499,7 @@ public final class Pusher extends Replication implements Database.ChangeListener
 
                     try {
                         String json  = Manager.getObjectMapper().writeValueAsString(revProps);
-                        Charset utf8charset = Charset.forName("UTF-8");
+                        Charset utf8charset = StandardCharsets.UTF_8;
                         multiPart.addPart("param1", new StringBody(json, "application/json", utf8charset));
 
                     } catch (IOException e) {

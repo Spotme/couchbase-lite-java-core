@@ -205,10 +205,7 @@ public final class Manager {
 
             @Override
             public boolean accept(File dir, String filename) {
-                if(filename.endsWith(Manager.DATABASE_SUFFIX)) {
-                    return true;
-                }
-                return false;
+                return filename.endsWith(Manager.DATABASE_SUFFIX);
             }
         });
         List<String> result = new ArrayList<String>();
@@ -483,7 +480,7 @@ public final class Manager {
         Object value = properties.get(key);
 
         if (value instanceof String) {
-            result.put("url", (String)value);
+            result.put("url", value);
         }
         else if (value instanceof Map) {
             result = (Map<String, Object>) value;
@@ -514,7 +511,7 @@ public final class Manager {
             replicator = new Pusher(db, remote, null, remoteDbUuid, continuous, getWorkExecutor());
         }
         else {
-            replicator = new Puller(db, remote, null, remoteDbUuid, continuous, false, false, 200, getWorkExecutor());
+            replicator = new Puller(db, remote, null, remoteDbUuid, continuous, false, false, 200, 0, getWorkExecutor());
         }
 
         replications.add(replicator);
@@ -645,6 +642,13 @@ public final class Manager {
         }
         if (batchSize == 0) batchSize = 200;
 
+        int seqInterval;
+        try {
+            seqInterval = (Integer) properties.get("seq_interval");
+        } catch (Exception e) {
+            seqInterval = 0;
+        }
+
         Boolean continuousBoolean = (Boolean)properties.get("continuous");
         boolean continuous = (continuousBoolean != null && continuousBoolean.booleanValue());
 
@@ -715,7 +719,7 @@ public final class Manager {
 
 
         if(!cancel) {
-            repl = db.getReplicator(remote, replicationID, remoteDbUuid, getDefaultHttpClientFactory(), push, continuous, bulkGet, ignoreRemoved, batchSize, getWorkExecutor());
+            repl = db.getReplicator(remote, replicationID, remoteDbUuid, getDefaultHttpClientFactory(), push, continuous, bulkGet, ignoreRemoved, batchSize, seqInterval, getWorkExecutor());
             if(repl == null) {
                 throw new CouchbaseLiteException("unable to create replicator with remote: " + remote, new Status(Status.INTERNAL_SERVER_ERROR));
             }
@@ -748,7 +752,7 @@ public final class Manager {
 	        }
 
             if(push) {
-                ((Pusher)repl).setCreateTarget(createTarget);
+                repl.setCreateTarget(createTarget);
             }
 
 

@@ -26,6 +26,8 @@ import com.couchbase.lite.util.Log;
 import com.couchbase.lite.util.TextUtils;
 import com.couchbase.lite.util.URIUtils;
 
+import org.apache.http.entity.mime.MultipartEntity;
+
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -52,7 +54,6 @@ import cz.msebera.android.httpclient.Header;
 import cz.msebera.android.httpclient.HttpResponse;
 import cz.msebera.android.httpclient.client.HttpResponseException;
 import cz.msebera.android.httpclient.cookie.Cookie;
-import org.apache.http.entity.mime.MultipartEntity;
 import cz.msebera.android.httpclient.impl.cookie.BasicClientCookie2;
 
 /**
@@ -103,6 +104,8 @@ public abstract class Replication {
 
     // Batch size
     protected int batchSize = 200;
+
+    protected int seqInterval;
 
     protected static int RETRY_DELAY = 60;
     protected static final int PROCESSOR_DELAY = 500;
@@ -162,8 +165,8 @@ public abstract class Replication {
      * @exclude
      */
     @InterfaceAudience.Private
-    /* package */ Replication(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, Integer sizeBatch, ScheduledExecutorService workExecutor) {
-        this(db, remote, replID, remoteDbUuid, continuous, sizeBatch, null, workExecutor);
+    /* package */ Replication(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, Integer sizeBatch, Integer seqInterval, ScheduledExecutorService workExecutor) {
+        this(db, remote, replID, remoteDbUuid, continuous, sizeBatch, seqInterval, null, workExecutor);
     }
 
     /**
@@ -171,13 +174,26 @@ public abstract class Replication {
      * @exclude
      */
     @InterfaceAudience.Private
-    /* package */ Replication(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, Integer sizeBatch, HttpClientFactory clientFactory, ScheduledExecutorService workExecutor) {
+    /* package */ Replication(Database db,
+                              URL remote,
+                              String replID,
+                              String remoteDbUuid,
+                              boolean continuous,
+                              Integer sizeBatch,
+                              Integer seqInterval,
+                              HttpClientFactory clientFactory,
+                              ScheduledExecutorService workExecutor) {
 
         this.db = db;
 	    this.replicationID = replID;
         this.continuous = continuous;
-        if (sizeBatch != null) this.batchSize = sizeBatch;
+        if (sizeBatch != null) {
+            this.batchSize = sizeBatch;
+        }
         else this.batchSize = DEFAULT_BATCH_SIZE;
+        if (seqInterval != null) {
+            this.seqInterval = seqInterval;
+        }
         this.workExecutor = workExecutor;
         this.remote = remote;
 	    this.remoteDbUuid = remoteDbUuid;
@@ -210,7 +226,7 @@ public abstract class Replication {
                 } catch (MalformedURLException e) {
                     throw new IllegalArgumentException(e);
                 }
-                authorizer.registerAccessToken(facebookAccessToken, email, remoteWithQueryRemoved.toExternalForm());
+                FacebookAuthorizer.registerAccessToken(facebookAccessToken, email, remoteWithQueryRemoved.toExternalForm());
                 setAuthenticator(authorizer);
             }
 
@@ -679,11 +695,68 @@ public abstract class Replication {
     }
 
     /**
-     * A delegate that can be used to listen for Replication changes.
+     * This is the _local document ID stored on the remote server to keep track of state.
+     * Its ID is based on the local database ID (the private one, to make the result unguessable)
+     * and the remote database's URL.
+     *
+     * @exclude
      */
-    @InterfaceAudience.Public
-    public static interface ChangeListener {
-        public void changed(ChangeEvent event);
+    @InterfaceAudience.Private
+    public String remoteCheckpointDocID() {
+
+        if (remoteCheckpointDocID != null) {
+            return remoteCheckpointDocID;
+        } else {
+
+            // TODO: Needs to be consistent with -hasSameSettingsAs: --
+            // TODO: If a.remoteCheckpointID == b.remoteCheckpointID then [a hasSameSettingsAs: b]
+
+            if (db == null) {
+                return null;
+            }
+
+            // canonicalization: make sure it produces the same checkpoint id regardless of
+            // ordering of filterparams / docids
+            Map<String, Object> filterParamsCanonical = null;
+            if (getFilterParams() != null) {
+                filterParamsCanonical = new TreeMap<String, Object>(getFilterParams());
+            }
+
+            List<String> docIdsSorted = null;
+            if (getDocIds() != null) {
+                docIdsSorted = new ArrayList<String>(getDocIds());
+                Collections.sort(docIdsSorted);
+            }
+
+            // use a treemap rather than a dictionary for purposes of canonicalization
+            Map<String, Object> spec = new TreeMap<String, Object>();
+            spec.put("localUUID", db.privateUUID());
+            spec.put("remoteURL", remote.toExternalForm());
+            spec.put("push", !isPull());
+            spec.put("continuous", isContinuous());
+            spec.put("remote_db_uuid", getRemoteDbUuid());
+
+            if (getFilter() != null) {
+                spec.put("filter", getFilter());
+            }
+            if (filterParamsCanonical != null) {
+                spec.put("filterParams", filterParamsCanonical);
+            }
+            if (docIdsSorted != null) {
+                spec.put("docids", docIdsSorted);
+            }
+
+            byte[] inputBytes = null;
+            try {
+                inputBytes = Manager.getObjectMapper().writeValueAsBytes(spec);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            remoteCheckpointDocID = Misc.TDHexSHA1Digest(inputBytes);
+            return remoteCheckpointDocID;
+
+        }
+
     }
 
     /**
@@ -1160,68 +1233,17 @@ public abstract class Replication {
     }
 
     /**
-     * This is the _local document ID stored on the remote server to keep track of state.
-     * Its ID is based on the local database ID (the private one, to make the result unguessable)
-     * and the remote database's URL.
-     *
      * @exclude
      */
     @InterfaceAudience.Private
-    public String remoteCheckpointDocID() {
+    public void fetchRemoteCheckpointDoc() {
+        //lastSequenceChanged = false;
+        String checkpointId = remoteCheckpointDocID();
+        final String localLastSequence = db.lastSequenceWithCheckpointId(checkpointId);
 
-        if (remoteCheckpointDocID != null) {
-            return remoteCheckpointDocID;
-        } else {
-
-            // TODO: Needs to be consistent with -hasSameSettingsAs: --
-            // TODO: If a.remoteCheckpointID == b.remoteCheckpointID then [a hasSameSettingsAs: b]
-
-            if (db == null) {
-                return null;
-            }
-
-            // canonicalization: make sure it produces the same checkpoint id regardless of
-            // ordering of filterparams / docids
-            Map<String, Object> filterParamsCanonical = null;
-            if (getFilterParams() != null) {
-                filterParamsCanonical = new TreeMap<String, Object>(getFilterParams());
-            }
-
-            List<String> docIdsSorted = null;
-            if (getDocIds() != null) {
-                docIdsSorted = new ArrayList<String>(getDocIds());
-                Collections.sort(docIdsSorted);
-            }
-
-            // use a treemap rather than a dictionary for purposes of canonicalization
-            Map<String, Object> spec = new TreeMap<String, Object>();
-            spec.put("localUUID", db.privateUUID());
-            spec.put("remoteURL", remote.toExternalForm());
-            spec.put("push", !isPull());
-            spec.put("continuous", isContinuous());
-	        spec.put("remote_db_uuid", getRemoteDbUuid());
-
-            if (getFilter() != null) {
-                spec.put("filter", getFilter());
-            }
-            if (filterParamsCanonical != null) {
-                spec.put("filterParams", filterParamsCanonical);
-            }
-            if (docIdsSorted != null) {
-                spec.put("docids", docIdsSorted);
-            }
-
-            byte[] inputBytes = null;
-            try {
-                inputBytes = db.getManager().getObjectMapper().writeValueAsBytes(spec);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-            remoteCheckpointDocID = Misc.TDHexSHA1Digest(inputBytes);
-            return remoteCheckpointDocID;
-
-        }
-
+        lastSequence = localLastSequence;
+        Log.d(Log.TAG_SYNC, "%s: Replicating from lastSequence=%s with seqInterval=%d", this, lastSequence, seqInterval);
+        beginReplicating();
     }
 
     @InterfaceAudience.Private
@@ -1233,17 +1255,11 @@ public abstract class Replication {
     }
 
     /**
-     * @exclude
+     * A delegate that can be used to listen for Replication changes.
      */
-    @InterfaceAudience.Private
-    public void fetchRemoteCheckpointDoc() {
-        //lastSequenceChanged = false;
-        String checkpointId = remoteCheckpointDocID();
-        final String localLastSequence = db.lastSequenceWithCheckpointId(checkpointId);
-
-        lastSequence = localLastSequence;
-        Log.d(Log.TAG_SYNC, "%s: Replicating from lastSequence=%s", this, lastSequence);
-        beginReplicating();
+    @InterfaceAudience.Public
+    public interface ChangeListener {
+        void changed(ChangeEvent event);
     }
 
     /**

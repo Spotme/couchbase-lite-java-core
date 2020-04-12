@@ -19,9 +19,6 @@ import com.couchbase.lite.util.CollectionUtils;
 import com.couchbase.lite.util.Log;
 import com.couchbase.lite.util.URIUtils;
 
-import cz.msebera.android.httpclient.client.HttpClient;
-import cz.msebera.android.httpclient.client.HttpResponseException;
-
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -32,6 +29,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import cz.msebera.android.httpclient.client.HttpClient;
+import cz.msebera.android.httpclient.client.HttpResponseException;
 
 
 /**
@@ -66,16 +66,16 @@ public final class Puller extends Replication implements ChangeTrackerClient {
      * Constructor
      */
     @InterfaceAudience.Private
-    /* package */ public Puller(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, boolean bulkGet, boolean ignoreRemoved, int batchSize, ScheduledExecutorService workExecutor) {
-        this(db, remote, replID, remoteDbUuid, continuous, bulkGet, ignoreRemoved, batchSize, null, workExecutor);
+    /* package */ public Puller(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, boolean bulkGet, boolean ignoreRemoved, int batchSize, int seqInterval, ScheduledExecutorService workExecutor) {
+        this(db, remote, replID, remoteDbUuid, continuous, bulkGet, ignoreRemoved, batchSize, seqInterval, null, workExecutor);
     }
 
     /**
      * Constructor
      */
     @InterfaceAudience.Private
-    /* package */ public Puller(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, boolean bulkGet, boolean ignoreRm, int batchS, HttpClientFactory clientFactory, ScheduledExecutorService workExecutor) {
-        super(db, remote, replID, remoteDbUuid, continuous, batchS, clientFactory, workExecutor);
+    /* package */ public Puller(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, boolean bulkGet, boolean ignoreRm, int batchS, int seqInt, HttpClientFactory clientFactory, ScheduledExecutorService workExecutor) {
+        super(db, remote, replID, remoteDbUuid, continuous, batchS, seqInt, clientFactory, workExecutor);
         canBulkGet = bulkGet;
         ignoreRemoved = ignoreRm;
     }
@@ -186,7 +186,7 @@ public final class Puller extends Replication implements ChangeTrackerClient {
         }
 
         Log.w(Log.TAG_SYNC, "%s: starting ChangeTracker with since=%s mode=%s", this, lastSequence, changeTrackerMode);
-        changeTracker = new ChangeTracker(remote, changeTrackerMode, true, lastSequence, this);
+        changeTracker = new ChangeTracker(remote, changeTrackerMode, true, lastSequence, seqInterval, this);
         changeTracker.setAuthenticator(getAuthenticator());
         Log.w(Log.TAG_SYNC, "%s: started ChangeTracker %s", this, changeTracker);
 
@@ -235,13 +235,13 @@ public final class Puller extends Replication implements ChangeTrackerClient {
             return;
         }
 
-        boolean removed = (change.containsKey("removed") && ((Boolean) change.get("removed")).equals(Boolean.TRUE));
+        boolean removed = (change.containsKey("removed") && change.get("removed").equals(Boolean.TRUE));
         if (removed && ignoreRemoved) {
             addToChangesCount(-1);
             return;
         }
 
-        boolean deleted = (change.containsKey("deleted") && ((Boolean) change.get("deleted")).equals(Boolean.TRUE));
+        boolean deleted = (change.containsKey("deleted") && change.get("deleted").equals(Boolean.TRUE));
         List<Map<String, Object>> changes = (List<Map<String, Object>>) change.get("changes");
         for (Map<String, Object> changeDict : changes) {
             String revID = (String) changeDict.get("rev");
@@ -783,7 +783,7 @@ public final class Puller extends Replication implements ChangeTrackerClient {
         try {
             for (RevisionInternal rev : downloads) {
                 long fakeSequence = rev.getSequence();
-                List<String> history = db.parseCouchDBRevisionHistory(rev.getProperties());
+                List<String> history = Database.parseCouchDBRevisionHistory(rev.getProperties());
                 if (history.isEmpty() && rev.getGeneration() > 1) {
                     Log.w(Log.TAG_SYNC, "%s: Missing revision history in response for: %s", this, rev);
                     setError(new CouchbaseLiteException(Status.UPSTREAM_ERROR));

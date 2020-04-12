@@ -51,7 +51,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -114,7 +114,7 @@ public final class Database {
     public static final String TAG = Log.TAG;
 
     private Map<String, View> views;
-    private Map<String, Collection<String>> viewDocTypes = new HashMap<>();;
+    private Map<String, Collection<String>> viewDocTypes = new HashMap<>();
     private Map<String, ReplicationFilter> filters;
     private Map<String, Validator> validations;
 
@@ -759,15 +759,27 @@ public final class Database {
     }
 
     /**
-     * Creates a new Replication that will pull from the source Database at the given url.
-     *
-     * @param remote the remote URL to pull from
-     * @return A new Replication that will pull from the source Database at the given url.
+     * Parses the _revisions dict from a document into an array of revision ID strings
+     * @exclude
      */
-    @InterfaceAudience.Public
-    public Replication createPullReplication(URL remote, boolean bulkGet, int batchSize) {
-        final boolean continuous = false;
-        return new Puller(this, remote, null, null, continuous, bulkGet, false, batchSize, manager.getWorkExecutor());
+    @InterfaceAudience.Private
+    public static List<String> parseCouchDBRevisionHistory(Map<String, Object> docProperties) {
+        Map<String, Object> revisions = (Map<String, Object>) docProperties.get("_revisions");
+        if (revisions == null) {
+            return new ArrayList<String>();
+        }
+        List<String> revIDs = new ArrayList<String>((List<String>) revisions.get("ids"));
+        if (revIDs == null || revIDs.isEmpty()) {
+            return new ArrayList<String>();
+        }
+        Integer start = (Integer) revisions.get("start");
+        if (start != null) {
+            for (int i = 0; i < revIDs.size(); i++) {
+                String revID = revIDs.get(i);
+                revIDs.set(i, start-- + "-" + revID);
+            }
+        }
+        return revIDs;
     }
 
 
@@ -828,11 +840,15 @@ public final class Database {
     }
 
     /**
-     * A delegate that can be used to listen for Database changes.
+     * Creates a new Replication that will pull from the source Database at the given url.
+     *
+     * @param remote the remote URL to pull from
+     * @return A new Replication that will pull from the source Database at the given url.
      */
     @InterfaceAudience.Public
-    public static interface ChangeListener {
-        public void changed(ChangeEvent event);
+    public Replication createPullReplication(URL remote, boolean bulkGet, int batchSize, int seqInterval) {
+        final boolean continuous = false;
+        return new Puller(this, remote, null, null, continuous, bulkGet, false, batchSize, seqInterval, manager.getWorkExecutor());
     }
 
     /**
@@ -1372,10 +1388,7 @@ public final class Database {
 
         upgradeSql = "UPDATE views SET lastsequence=0; " +
                 "PRAGMA user_version = " + version;
-        if (!initialize(upgradeSql)) {
-            return false;
-        }
-        return true;
+        return initialize(upgradeSql);
     }
 
     /**
@@ -1486,7 +1499,7 @@ public final class Database {
             }
             // Inner (level 1 or higher) transaction. Use SQLite's SAVEPOINT
             else {
-                database.execSQL("SAVEPOINT cbl_" + Integer.toString(tLevel));
+                database.execSQL("SAVEPOINT cbl_" + tLevel);
             }
             Log.i(Log.TAG, "%s Begin transaction (level %d)", Thread.currentThread().getName(), tLevel);
             transactionLevel.set(++tLevel);
@@ -1534,14 +1547,14 @@ public final class Database {
             } else {
                 Log.i(Log.TAG, "%s CANCEL transaction (level %d)", Thread.currentThread().getName(), tLevel);
                 try {
-                    database.execSQL(";ROLLBACK TO cbl_" + Integer.toString(tLevel));
+                    database.execSQL(";ROLLBACK TO cbl_" + tLevel);
                 } catch (SQLException e) {
                     Log.e(Database.TAG, Thread.currentThread().getName() + " Error calling endTransaction()", e);
                     return false;
                 }
             }
             try {
-                database.execSQL("RELEASE cbl_" + Integer.toString(tLevel));
+                database.execSQL("RELEASE cbl_" + tLevel);
             } catch (SQLException e) {
                 Log.e(Database.TAG, Thread.currentThread().getName() + " Error calling endTransaction()", e);
                 return false;
@@ -2022,7 +2035,7 @@ public final class Database {
         if (docNumericID <= 0)
             return null;
 
-        int sqlLimit = limit > 0 ? (int)limit : -1;     // SQL uses -1, not 0, to denote 'no limit'
+        int sqlLimit = limit > 0 ? limit : -1;     // SQL uses -1, not 0, to denote 'no limit'
         String sql = "SELECT revid, sequence FROM revs WHERE doc_id=? and revid < ?" +
         " and deleted=0 and json not null" +
         " ORDER BY sequence DESC LIMIT ?";
@@ -2861,7 +2874,7 @@ public final class Database {
         if (pendingAttachmentsByDigest != null && pendingAttachmentsByDigest.containsKey(digest)) {
             BlobStoreWriter writer = pendingAttachmentsByDigest.get(digest);
             try {
-                BlobStoreWriter blobStoreWriter = (BlobStoreWriter) writer;
+                BlobStoreWriter blobStoreWriter = writer;
                 blobStoreWriter.install();
                 attachment.setBlobKey(blobStoreWriter.getBlobKey());
                 attachment.setLength(blobStoreWriter.getLength());
@@ -2982,7 +2995,7 @@ public final class Database {
         Cursor cursor = null;
         String filePath = null;
 
-        String args[] = { Long.toString(sequence), filename };
+        String[] args = {Long.toString(sequence), filename};
         try {
             cursor = database.rawQuery("SELECT key, type, encoding FROM attachments WHERE sequence=? AND filename=?", args);
 
@@ -3009,15 +3022,11 @@ public final class Database {
 
         Cursor cursor = null;
 
-        String args[] = { Long.toString(sequence) };
+        String[] args = {Long.toString(sequence)};
         try {
             cursor = database.rawQuery("SELECT 1 FROM attachments WHERE sequence=? LIMIT 1", args);
 
-            if(cursor.moveToNext()) {
-                return true;
-            } else {
-                return false;
-            }
+            return cursor.moveToNext();
         } catch (SQLException e) {
             Log.e(Database.TAG, "Error getting attachments for sequence", e);
             return false;
@@ -3039,7 +3048,7 @@ public final class Database {
 
         Cursor cursor = null;
 
-        String args[] = { Long.toString(sequence) };
+        String[] args = {Long.toString(sequence)};
         try {
             cursor = database.rawQuery("SELECT filename, key, type, encoding, length, encoded_length, revpos FROM attachments WHERE sequence=?", args);
 
@@ -3176,7 +3185,7 @@ public final class Database {
         if (minRevPos <= 1) {
             return;
         }
-        Map<String, Object> properties = (Map<String,Object>)rev.getProperties();
+        Map<String, Object> properties = rev.getProperties();
         Map<String, Object> attachments = null;
         if(properties != null) {
             attachments = (Map<String,Object>)properties.get("_attachments");
@@ -3313,7 +3322,6 @@ public final class Database {
             try {
                 closable.close();
             } catch (IOException var1) {
-                ;
             }
         }
     }
@@ -3335,7 +3343,7 @@ public final class Database {
 
         // If there are no attachments in the new rev, there's nothing to do:
         Map<String,Object> revAttachments = null;
-        Map<String,Object> properties = (Map<String,Object>)rev.getProperties();
+        Map<String, Object> properties = rev.getProperties();
         if(properties != null) {
             revAttachments = (Map<String,Object>)properties.get("_attachments");
         }
@@ -3585,7 +3593,7 @@ public final class Database {
 
         int length = 0;
         if (previousRevisionId != null) {
-            byte[] prevIDUTF8 = previousRevisionId.getBytes(Charset.forName("UTF-8"));
+            byte[] prevIDUTF8 = previousRevisionId.getBytes(StandardCharsets.UTF_8);
             length = prevIDUTF8.length;
         }
         if (length > 0xFF) {
@@ -3648,27 +3656,13 @@ public final class Database {
     }
 
     /**
-     * Parses the _revisions dict from a document into an array of revision ID strings
      * @exclude
      */
     @InterfaceAudience.Private
-    public static List<String> parseCouchDBRevisionHistory(Map<String,Object> docProperties) {
-        Map<String,Object> revisions = (Map<String,Object>)docProperties.get("_revisions");
-        if(revisions == null) {
-            return new ArrayList<String>();
-        }
-        List<String> revIDs = new ArrayList<String>((List<String>)revisions.get("ids"));
-        if (revIDs == null || revIDs.isEmpty()) {
-            return new ArrayList<String>();
-        }
-        Integer start = (Integer)revisions.get("start");
-        if(start != null) {
-            for(int i=0; i < revIDs.size(); i++) {
-                String revID = revIDs.get(i);
-                revIDs.set(i, Integer.toString(start--) + "-" + revID);
-            }
-        }
-        return revIDs;
+    public Replication getReplicator(URL remote, String remoteDbUuid, boolean push, boolean continuous, boolean bulkGet, boolean ignoredRemoved, int batchSize, int seqInterval, ScheduledExecutorService workExecutor) {
+        Replication replicator = getReplicator(remote, null, remoteDbUuid, null, push, continuous, bulkGet, ignoredRemoved, batchSize, seqInterval, workExecutor);
+
+        return replicator;
     }
 
     /** INSERTION: **/
@@ -4488,12 +4482,30 @@ public final class Database {
 
     /**
      * @exclude
+     *
+     * @remoteDbUuid uuid of db on server side. Can be null if not provided by server side
+     *
      */
     @InterfaceAudience.Private
-    public Replication getReplicator(URL remote, String remoteDbUuid, boolean push, boolean continuous,boolean bulkGet, boolean ignoredRemoved, int batchSize, ScheduledExecutorService workExecutor) {
-        Replication replicator = getReplicator(remote, null, remoteDbUuid, null, push, continuous, bulkGet, ignoredRemoved, batchSize, workExecutor);
-
-    	return replicator;
+    public Replication getReplicator(URL remote,
+                                     String replID,
+                                     String remoteDbUuid,
+                                     HttpClientFactory httpClientFactory,
+                                     boolean push,
+                                     boolean continuous,
+                                     boolean bulkGet,
+                                     boolean ignoreRemoved,
+                                     int batchSize,
+                                     int seqInterval,
+                                     ScheduledExecutorService workExecutor) {
+        Replication result = getActiveReplicator(replID, remote, remoteDbUuid, push);
+        if(result != null) {
+            return result;
+        }
+        result = push ?
+                new Pusher(this, remote, replID, remoteDbUuid, continuous, httpClientFactory, workExecutor) :
+                new Puller(this, remote, replID, remoteDbUuid, continuous, bulkGet, ignoreRemoved, batchSize, seqInterval, httpClientFactory, workExecutor);
+        return result;
     }
 
     /**
@@ -4501,7 +4513,7 @@ public final class Database {
      */
     @InterfaceAudience.Private
     public Replication getReplicator(String sessionId) {
-    	if(allReplicators != null) {
+        if (allReplicators != null) {
             for (Replication replicator : allReplicators) {
                 if (replicator.getSessionID().equals(sessionId) || replicator.getReplicationID().equals(sessionId)) {
                     return replicator;
@@ -4513,19 +4525,54 @@ public final class Database {
 
     /**
      * @exclude
-     *
-     * @remoteDbUuid uuid of db on server side. Can be null if not provided by server side
-     *
      */
     @InterfaceAudience.Private
-    public Replication getReplicator(URL remote, String replID, String remoteDbUuid, HttpClientFactory httpClientFactory, boolean push, boolean continuous, boolean bulkGet, boolean ignoreRemoved, int batchSize, ScheduledExecutorService workExecutor) {
-        Replication result = getActiveReplicator(replID, remote, remoteDbUuid, push);
-        if(result != null) {
-            return result;
+    public RevisionInternal putLocalRevision(RevisionInternal revision, String prevRevID) throws CouchbaseLiteException {
+        String docID = revision.getDocId();
+        if (!docID.startsWith("_local/")) {
+            throw new CouchbaseLiteException(Status.BAD_REQUEST);
         }
-        result = push ? new Pusher(this, remote, replID, remoteDbUuid, continuous, httpClientFactory, workExecutor) : new Puller(this, remote, replID, remoteDbUuid, continuous, bulkGet, ignoreRemoved, batchSize, httpClientFactory, workExecutor);
 
-        return result;
+        if (!revision.isDeleted()) {
+            // PUT:
+            byte[] json = encodeDocumentJSON(revision);
+            String newRevID;
+            if (prevRevID != null) {
+                int generation = RevisionInternal.generationFromRevID(prevRevID);
+                if (generation == 0) {
+                    throw new CouchbaseLiteException(Status.BAD_REQUEST);
+                }
+                newRevID = ++generation + "-local";
+                ContentValues values = new ContentValues();
+                values.put("revid", newRevID);
+                values.put("json", json);
+                String[] whereArgs = {docID, prevRevID};
+                try {
+                    int rowsUpdated = database.update("localdocs", values, "docid=? AND revid=?", whereArgs);
+                    if (rowsUpdated == 0) {
+                        throw new CouchbaseLiteException(Status.CONFLICT);
+                    }
+                } catch (SQLException e) {
+                    throw new CouchbaseLiteException(e, Status.INTERNAL_SERVER_ERROR);
+                }
+            } else {
+                newRevID = "1-local";
+                ContentValues values = new ContentValues();
+                values.put("docid", docID);
+                values.put("revid", newRevID);
+                values.put("json", json);
+                try {
+                    database.insertWithOnConflict("localdocs", null, values, SQLiteStorageEngine.CONFLICT_IGNORE);
+                } catch (SQLException e) {
+                    throw new CouchbaseLiteException(e, Status.INTERNAL_SERVER_ERROR);
+                }
+            }
+            return revision.copyWithDocID(docID, newRevID);
+        } else {
+            // DELETE:
+            deleteLocalDocument(docID, prevRevID);
+            return revision;
+        }
     }
 
     /**
@@ -4705,136 +4752,6 @@ public final class Database {
     }
 
     /**
-     * @exclude
-     */
-    @InterfaceAudience.Private
-    public RevisionInternal putLocalRevision(RevisionInternal revision, String prevRevID) throws CouchbaseLiteException {
-        String docID = revision.getDocId();
-        if(!docID.startsWith("_local/")) {
-            throw new CouchbaseLiteException(Status.BAD_REQUEST);
-        }
-
-        if(!revision.isDeleted()) {
-            // PUT:
-            byte[] json = encodeDocumentJSON(revision);
-            String newRevID;
-            if(prevRevID != null) {
-                int generation = RevisionInternal.generationFromRevID(prevRevID);
-                if(generation == 0) {
-                    throw new CouchbaseLiteException(Status.BAD_REQUEST);
-                }
-                newRevID = Integer.toString(++generation) + "-local";
-                ContentValues values = new ContentValues();
-                values.put("revid", newRevID);
-                values.put("json", json);
-                String[] whereArgs = { docID, prevRevID };
-                try {
-                    int rowsUpdated = database.update("localdocs", values, "docid=? AND revid=?", whereArgs);
-                    if(rowsUpdated == 0) {
-                        throw new CouchbaseLiteException(Status.CONFLICT);
-                    }
-                } catch (SQLException e) {
-                    throw new CouchbaseLiteException(e, Status.INTERNAL_SERVER_ERROR);
-                }
-            } else {
-                newRevID = "1-local";
-                ContentValues values = new ContentValues();
-                values.put("docid", docID);
-                values.put("revid", newRevID);
-                values.put("json", json);
-                try {
-                    database.insertWithOnConflict("localdocs", null, values, SQLiteStorageEngine.CONFLICT_IGNORE);
-                } catch (SQLException e) {
-                    throw new CouchbaseLiteException(e, Status.INTERNAL_SERVER_ERROR);
-                }
-            }
-            return revision.copyWithDocID(docID, newRevID);
-        }
-        else {
-            // DELETE:
-            deleteLocalDocument(docID, prevRevID);
-            return revision;
-        }
-    }
-
-
-    /**
-     * Creates a one-shot query with the given map function. This is equivalent to creating an
-     * anonymous View and then deleting it immediately after querying it. It may be useful during
-     * development, but in general this is inefficient if this map will be used more than once,
-     * because the entire view has to be regenerated from scratch every time.
-     * @exclude
-     */
-    @InterfaceAudience.Private
-    public Query slowQuery(Mapper map) {
-        return new Query(this, map);
-    }
-
-    /**
-     * @exclude
-     */
-    @InterfaceAudience.Private
-    RevisionInternal getParentRevision(RevisionInternal rev) {
-
-        // First get the parent's sequence:
-        long seq = rev.getSequence();
-        if (seq > 0) {
-            seq = longForQuery("SELECT parent FROM revs WHERE sequence=?", new String[] { Long.toString(seq) });
-        } else {
-            long docNumericID = getDocNumericID(rev.getDocId());
-            if (docNumericID <= 0) {
-                return null;
-            }
-            String[] args = new String[] { Long.toString(docNumericID), rev.getRevId() } ;
-            seq = longForQuery("SELECT parent FROM revs WHERE doc_id=? and revid=?", args);
-        }
-
-        if (seq == 0) {
-            return null;
-        }
-
-        // Now get its revID and deletion status:
-        RevisionInternal result = null;
-
-        String[] args = { Long.toString(seq) };
-        String queryString = "SELECT revid, deleted FROM revs WHERE sequence=?";
-        Cursor cursor = null;
-
-        try {
-            cursor = database.rawQuery(queryString, args);
-            if (cursor.moveToNext()) {
-                String revId = cursor.getString(0);
-                boolean deleted = (cursor.getInt(1) > 0);
-                result = new RevisionInternal(rev.getDocId(), revId, deleted, this);
-                result.setSequence(seq);
-            }
-        } finally {
-            cursor.close();
-        }
-        return result;
-    }
-
-    /**
-     * @exclude
-     */
-    @InterfaceAudience.Private
-    long longForQuery(String sqlQuery, String[] args) throws SQLException {
-        Cursor cursor = null;
-        long result = 0;
-        try {
-            cursor = database.rawQuery(sqlQuery, args);
-            if(cursor.moveToNext()) {
-                result = cursor.getLong(0);
-            }
-        } finally {
-            if(cursor != null) {
-                cursor.close();
-            }
-        }
-        return result;
-    }
-
-    /**
      * Purges specific revisions, which deletes them completely from the local database _without_ adding a "tombstone" revision. It's as though they were never there.
      * This operation is described here: http://wiki.apache.org/couchdb/Purge_Documents
      * @param docsToRevs  A dictionary mapping document IDs to arrays of revision IDs.
@@ -4854,7 +4771,7 @@ public final class Database {
                         continue; // no such document, skip it
                     }
                     List<String> revsPurged = new ArrayList<String>();
-                    List<String> revIDs = (List<String>) docsToRevs.get(docID);
+                    List<String> revIDs = docsToRevs.get(docID);
                     if (revIDs == null) {
                         return false;
                     } else if (revIDs.size() == 0) {
@@ -4946,6 +4863,92 @@ public final class Database {
 
         return result;
 
+    }
+
+
+    /**
+     * Creates a one-shot query with the given map function. This is equivalent to creating an
+     * anonymous View and then deleting it immediately after querying it. It may be useful during
+     * development, but in general this is inefficient if this map will be used more than once,
+     * because the entire view has to be regenerated from scratch every time.
+     *
+     * @exclude
+     */
+    @InterfaceAudience.Private
+    public Query slowQuery(Mapper map) {
+        return new Query(this, map);
+    }
+
+    /**
+     * @exclude
+     */
+    @InterfaceAudience.Private
+    RevisionInternal getParentRevision(RevisionInternal rev) {
+
+        // First get the parent's sequence:
+        long seq = rev.getSequence();
+        if (seq > 0) {
+            seq = longForQuery("SELECT parent FROM revs WHERE sequence=?", new String[]{Long.toString(seq)});
+        } else {
+            long docNumericID = getDocNumericID(rev.getDocId());
+            if (docNumericID <= 0) {
+                return null;
+            }
+            String[] args = new String[]{Long.toString(docNumericID), rev.getRevId()};
+            seq = longForQuery("SELECT parent FROM revs WHERE doc_id=? and revid=?", args);
+        }
+
+        if (seq == 0) {
+            return null;
+        }
+
+        // Now get its revID and deletion status:
+        RevisionInternal result = null;
+
+        String[] args = {Long.toString(seq)};
+        String queryString = "SELECT revid, deleted FROM revs WHERE sequence=?";
+        Cursor cursor = null;
+
+        try {
+            cursor = database.rawQuery(queryString, args);
+            if (cursor.moveToNext()) {
+                String revId = cursor.getString(0);
+                boolean deleted = (cursor.getInt(1) > 0);
+                result = new RevisionInternal(rev.getDocId(), revId, deleted, this);
+                result.setSequence(seq);
+            }
+        } finally {
+            cursor.close();
+        }
+        return result;
+    }
+
+    /**
+     * @exclude
+     */
+    @InterfaceAudience.Private
+    long longForQuery(String sqlQuery, String[] args) throws SQLException {
+        Cursor cursor = null;
+        long result = 0;
+        try {
+            cursor = database.rawQuery(sqlQuery, args);
+            if (cursor.moveToNext()) {
+                result = cursor.getLong(0);
+            }
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+        return result;
+    }
+
+    /**
+     * A delegate that can be used to listen for Database changes.
+     */
+    @InterfaceAudience.Public
+    public interface ChangeListener {
+        void changed(ChangeEvent event);
     }
 
     /**
