@@ -511,7 +511,7 @@ public final class Manager {
             replicator = new Pusher(db, remote, null, remoteDbUuid, continuous, getWorkExecutor());
         }
         else {
-            replicator = new Puller(db, remote, null, remoteDbUuid, continuous, false, false, 200, 0, getWorkExecutor());
+            replicator = new Puller(db, remote, null, remoteDbUuid, continuous, false, false, 200, getWorkExecutor());
         }
 
         replications.add(replicator);
@@ -642,13 +642,6 @@ public final class Manager {
         }
         if (batchSize == 0) batchSize = 200;
 
-        int seqInterval;
-        try {
-            seqInterval = (Integer) properties.get("seq_interval");
-        } catch (Exception e) {
-            seqInterval = 0;
-        }
-
         Boolean continuousBoolean = (Boolean)properties.get("continuous");
         boolean continuous = (continuousBoolean != null && continuousBoolean.booleanValue());
 
@@ -719,7 +712,7 @@ public final class Manager {
 
 
         if(!cancel) {
-            repl = db.getReplicator(remote, replicationID, remoteDbUuid, getDefaultHttpClientFactory(), push, continuous, bulkGet, ignoreRemoved, batchSize, seqInterval, getWorkExecutor());
+            repl = db.getReplicator(remote, replicationID, remoteDbUuid, getDefaultHttpClientFactory(), push, continuous, bulkGet, ignoreRemoved, batchSize, getWorkExecutor());
             if(repl == null) {
                 throw new CouchbaseLiteException("unable to create replicator with remote: " + remote, new Status(Status.INTERNAL_SERVER_ERROR));
             }

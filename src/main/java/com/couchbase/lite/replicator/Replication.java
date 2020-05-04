@@ -105,8 +105,6 @@ public abstract class Replication {
     // Batch size
     protected int batchSize = 200;
 
-    protected int seqInterval;
-
     protected static int RETRY_DELAY = 60;
     protected static final int PROCESSOR_DELAY = 500;
 
@@ -165,8 +163,8 @@ public abstract class Replication {
      * @exclude
      */
     @InterfaceAudience.Private
-    /* package */ Replication(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, Integer sizeBatch, Integer seqInterval, ScheduledExecutorService workExecutor) {
-        this(db, remote, replID, remoteDbUuid, continuous, sizeBatch, seqInterval, null, workExecutor);
+    /* package */ Replication(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, Integer sizeBatch, ScheduledExecutorService workExecutor) {
+        this(db, remote, replID, remoteDbUuid, continuous, sizeBatch, null, workExecutor);
     }
 
     /**
@@ -180,7 +178,6 @@ public abstract class Replication {
                               String remoteDbUuid,
                               boolean continuous,
                               Integer sizeBatch,
-                              Integer seqInterval,
                               HttpClientFactory clientFactory,
                               ScheduledExecutorService workExecutor) {
 
@@ -191,9 +188,6 @@ public abstract class Replication {
             this.batchSize = sizeBatch;
         }
         else this.batchSize = DEFAULT_BATCH_SIZE;
-        if (seqInterval != null) {
-            this.seqInterval = seqInterval;
-        }
         this.workExecutor = workExecutor;
         this.remote = remote;
 	    this.remoteDbUuid = remoteDbUuid;
@@ -1242,7 +1236,7 @@ public abstract class Replication {
         final String localLastSequence = db.lastSequenceWithCheckpointId(checkpointId);
 
         lastSequence = localLastSequence;
-        Log.d(Log.TAG_SYNC, "%s: Replicating from lastSequence=%s with seqInterval=%d", this, lastSequence, seqInterval);
+        Log.d(Log.TAG_SYNC, "%s: Replicating from lastSequence=%s", this, lastSequence);
         beginReplicating();
     }
 

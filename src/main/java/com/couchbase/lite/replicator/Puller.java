@@ -66,16 +66,16 @@ public final class Puller extends Replication implements ChangeTrackerClient {
      * Constructor
      */
     @InterfaceAudience.Private
-    /* package */ public Puller(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, boolean bulkGet, boolean ignoreRemoved, int batchSize, int seqInterval, ScheduledExecutorService workExecutor) {
-        this(db, remote, replID, remoteDbUuid, continuous, bulkGet, ignoreRemoved, batchSize, seqInterval, null, workExecutor);
+    /* package */ public Puller(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, boolean bulkGet, boolean ignoreRemoved, int batchSize, ScheduledExecutorService workExecutor) {
+        this(db, remote, replID, remoteDbUuid, continuous, bulkGet, ignoreRemoved, batchSize, null, workExecutor);
     }
 
     /**
      * Constructor
      */
     @InterfaceAudience.Private
-    /* package */ public Puller(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, boolean bulkGet, boolean ignoreRm, int batchS, int seqInt, HttpClientFactory clientFactory, ScheduledExecutorService workExecutor) {
-        super(db, remote, replID, remoteDbUuid, continuous, batchS, seqInt, clientFactory, workExecutor);
+    /* package */ public Puller(Database db, URL remote, String replID, String remoteDbUuid, boolean continuous, boolean bulkGet, boolean ignoreRm, int batchS, HttpClientFactory clientFactory, ScheduledExecutorService workExecutor) {
+        super(db, remote, replID, remoteDbUuid, continuous, batchS, clientFactory, workExecutor);
         canBulkGet = bulkGet;
         ignoreRemoved = ignoreRm;
     }
@@ -186,7 +186,7 @@ public final class Puller extends Replication implements ChangeTrackerClient {
         }
 
         Log.w(Log.TAG_SYNC, "%s: starting ChangeTracker with since=%s mode=%s", this, lastSequence, changeTrackerMode);
-        changeTracker = new ChangeTracker(remote, changeTrackerMode, true, lastSequence, seqInterval, this);
+        changeTracker = new ChangeTracker(remote, changeTrackerMode, true, lastSequence, this);
         changeTracker.setAuthenticator(getAuthenticator());
         Log.w(Log.TAG_SYNC, "%s: started ChangeTracker %s", this, changeTracker);
 
@@ -221,8 +221,9 @@ public final class Puller extends Replication implements ChangeTrackerClient {
     // Got a _changes feed entry from the ChangeTracker.
     @Override
     @InterfaceAudience.Private
-    public void changeTrackerReceivedChange(Map<String, Object> change, String lastSequence) {
+    public void changeTrackerReceivedChange(Map<String, Object> change) {
 
+        String lastSequence = change.get("seq").toString();
         String docID = (String) change.get("id");
         if (docID == null) {
             addToChangesCount(-1);

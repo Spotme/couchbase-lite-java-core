@@ -51,8 +51,7 @@ public class ChangeTracker implements Runnable {
     private URL databaseURL;
     private ChangeTrackerClient client;
     private ChangeTrackerMode mode;
-    private String lastSequenceID;
-    private int seqInterval;
+    private Object lastSequenceID;
     private boolean includeConflicts;
 
     private Thread thread;
@@ -83,13 +82,11 @@ public class ChangeTracker implements Runnable {
                          ChangeTrackerMode mode,
                          boolean includeConflicts,
                          Object lastSequenceID,
-                         int seqInterval,
                          ChangeTrackerClient client) {
         this.databaseURL = databaseURL;
         this.mode = mode;
         this.includeConflicts = includeConflicts;
-        this.lastSequenceID = (String)lastSequenceID;
-        this.seqInterval = seqInterval;
+        this.lastSequenceID = lastSequenceID;
         this.client = client;
         this.requestHeaders = new HashMap<String, Object>();
         this.heartBeatSeconds = 300;
@@ -149,12 +146,7 @@ public class ChangeTracker implements Runnable {
         }
 
         if(lastSequenceID != null) {
-            path += "&since=" + URLEncoder.encode(lastSequenceID);
-        }
-
-        if (seqInterval > 0) {
-            Log.i(Log.TAG_CHANGE_TRACKER, this + ": Apply seq_interval=%d", seqInterval);
-            path += "&seq_interval=" + seqInterval;
+            path += "&since=" + URLEncoder.encode(lastSequenceID.toString());
         }
 
         if (usePOST) {
@@ -352,7 +344,6 @@ public class ChangeTracker implements Runnable {
                             // workaround to avoid total docs to replicate to grow
                             Map res = Manager.getMapReader().readValue(input);
                             List<Map<String, Object>> results = (List<Map<String, Object>>) res.get("results");
-                            lastSequenceID = (String)res.get("last_seq");
                             if(client != null) client.addTotalDocs(results.size());
                             for (Map<String, Object> change : results) {
                                 List changes = (List) change.get("changes");
@@ -403,15 +394,16 @@ public class ChangeTracker implements Runnable {
     }
 
     public boolean receivedChange(final Map<String,Object> change) {
-//        Object seq = change.get("seq");
-//        if(seq == null) {
-//            client.addTotalDocs(-1);
-//            return false;
-//        }
+        Object seq = change.get("seq");
+        if(seq == null) {
+            client.addTotalDocs(-1);
+            return false;
+        }
         //pass the change to the client on the thread that created this change tracker
         if(client != null) {
-            client.changeTrackerReceivedChange(change, lastSequenceID);
+            client.changeTrackerReceivedChange(change);
         }
+        lastSequenceID = seq;
         return true;
     }
 
@@ -515,9 +507,9 @@ public class ChangeTracker implements Runnable {
         }
         if (lastSequenceID != null) {
             try {
-                post.put("since", Long.parseLong(lastSequenceID));
+                post.put("since", Long.parseLong(lastSequenceID.toString()));
             } catch (NumberFormatException e) {
-                post.put("since", lastSequenceID);
+                post.put("since", lastSequenceID.toString());
             }
         }
 

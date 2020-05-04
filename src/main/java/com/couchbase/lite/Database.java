@@ -846,9 +846,9 @@ public final class Database {
      * @return A new Replication that will pull from the source Database at the given url.
      */
     @InterfaceAudience.Public
-    public Replication createPullReplication(URL remote, boolean bulkGet, int batchSize, int seqInterval) {
+    public Replication createPullReplication(URL remote, boolean bulkGet, int batchSize) {
         final boolean continuous = false;
-        return new Puller(this, remote, null, null, continuous, bulkGet, false, batchSize, seqInterval, manager.getWorkExecutor());
+        return new Puller(this, remote, null, null, continuous, bulkGet, false, batchSize, manager.getWorkExecutor());
     }
 
     /**
@@ -3659,8 +3659,8 @@ public final class Database {
      * @exclude
      */
     @InterfaceAudience.Private
-    public Replication getReplicator(URL remote, String remoteDbUuid, boolean push, boolean continuous, boolean bulkGet, boolean ignoredRemoved, int batchSize, int seqInterval, ScheduledExecutorService workExecutor) {
-        Replication replicator = getReplicator(remote, null, remoteDbUuid, null, push, continuous, bulkGet, ignoredRemoved, batchSize, seqInterval, workExecutor);
+    public Replication getReplicator(URL remote, String remoteDbUuid, boolean push, boolean continuous, boolean bulkGet, boolean ignoredRemoved, int batchSize, ScheduledExecutorService workExecutor) {
+        Replication replicator = getReplicator(remote, null, remoteDbUuid, null, push, continuous, bulkGet, ignoredRemoved, batchSize, workExecutor);
 
         return replicator;
     }
@@ -4496,7 +4496,6 @@ public final class Database {
                                      boolean bulkGet,
                                      boolean ignoreRemoved,
                                      int batchSize,
-                                     int seqInterval,
                                      ScheduledExecutorService workExecutor) {
         Replication result = getActiveReplicator(replID, remote, remoteDbUuid, push);
         if(result != null) {
@@ -4504,7 +4503,7 @@ public final class Database {
         }
         result = push ?
                 new Pusher(this, remote, replID, remoteDbUuid, continuous, httpClientFactory, workExecutor) :
-                new Puller(this, remote, replID, remoteDbUuid, continuous, bulkGet, ignoreRemoved, batchSize, seqInterval, httpClientFactory, workExecutor);
+                new Puller(this, remote, replID, remoteDbUuid, continuous, bulkGet, ignoreRemoved, batchSize, httpClientFactory, workExecutor);
         return result;
     }
 
