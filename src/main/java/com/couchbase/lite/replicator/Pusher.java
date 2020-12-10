@@ -526,7 +526,12 @@ public final class Pusher extends Replication implements Database.ChangeListener
                                 " field name instead of content_type (see couchbase-lite-android" +
                                 " issue #80): %s", attachment);
                     }
-		            InputStreamBody inputStreamBody = new InputStreamBody(inputStream, contentType, attachmentFileName);
+
+                    long content_length = -1L;
+                    if (attachment.containsKey("length")) {
+                        content_length = (Integer) attachment.get("length");
+                    }
+		            InputStreamBody inputStreamBody = new InputStreamBody(inputStream, contentType, attachmentFileName, content_length);
 
                     multiPart.addPart(attachmentFileName, inputStreamBody);
                 }

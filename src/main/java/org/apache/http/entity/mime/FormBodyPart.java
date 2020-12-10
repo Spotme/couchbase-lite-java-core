@@ -55,6 +55,7 @@ public class FormBodyPart {
 
         generateContentDisp(body);
         generateContentType(body);
+        generateContentLength(body);
         generateTransferEncoding(body);
     }
 
@@ -96,6 +97,10 @@ public class FormBodyPart {
             buffer.append(body.getCharset());
         }
         addField(MIME.CONTENT_TYPE, buffer.toString());
+    }
+
+    protected void generateContentLength(final org.apache.http.entity.mime.content.ContentBody body) {
+        addField(MIME.CONTENT_LENGTH, String.valueOf(body.getContentLength()));
     }
 
     protected void generateTransferEncoding(final org.apache.http.entity.mime.content.ContentBody body) {

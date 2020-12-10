@@ -36,6 +36,7 @@ import java.nio.charset.Charset;
 public final class MIME {
 
     public static final String CONTENT_TYPE          = "Content-Type";
+    public static final String CONTENT_LENGTH        = "Content-Length";
     public static final String CONTENT_TRANSFER_ENC  = "Content-Transfer-Encoding";
     public static final String CONTENT_DISPOSITION   = "Content-Disposition";
 
